@@ -30,11 +30,11 @@ def to_excel(df):
         df.to_excel(writer, index=False, sheet_name='Sheet1')
     return output.getvalue()
 
-# --- 4. SIDEBAR NAVIGATION ---
+# --- 4. SIDEBAR NAVIGATION (NEW PAGE ADDED) ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #0f172a;'>MUNDADA</h1>", unsafe_allow_html=True)
     st.divider()
-    page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger"], key="nav_page")
+    page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger", "👥 Team Ledger"], key="nav_page")
     st.info(f"User: Mayur Patil\nDate: 29-Apr-2026")
 
 # --- 5. DASHBOARD ---
@@ -161,7 +161,6 @@ elif page == "🏗️ Site Data Entry":
                 if is_editing: supabase.table("site_data").update(data).eq('id', er['id']).execute(); st.session_state.edit_row_data = None
                 else: supabase.table("site_data").insert(data).execute()
                 
-                # CLEAR FORM WIDGET DATA AND REFRESH
                 for k in list(st.session_state.keys()): 
                     if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
                 st.rerun()
@@ -212,7 +211,6 @@ elif page == "💸 Finance Ledger":
                         supabase.table("site_data").update({"received_amt": old_amt + float(f_amt)}).eq("project_id", f_project).execute()
                     st.success("Finance Ledger Updated!")
                     
-                    # CLEAR FINANCE WIDGET DATA AND REFRESH
                     for k in list(st.session_state.keys()): 
                         if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
                     st.rerun()
@@ -253,7 +251,6 @@ elif page == "💸 Finance Ledger":
                     supabase.table("site_data").update({"team_paid_amt": old_paid + float(p_amt)}).eq("project_id", p_project).execute()
                     st.success(f"Payment recorded and Site Data Updated!")
                     
-                    # CLEAR FINANCE WIDGET DATA AND REFRESH
                     for k in list(st.session_state.keys()): 
                         if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
                     st.rerun()
@@ -268,3 +265,36 @@ elif page == "💸 Finance Ledger":
                 if not df_paid.empty:
                     cols_to_show = ['received_from', 'transaction_date', 'paid_amount', 'created_at']
                     st.dataframe(df_paid[[c for c in cols_to_show if c in df_paid.columns]], use_container_width=True)
+
+# --- 9. NEW TEAM LEDGER PAGE ---
+elif page == "👥 Team Ledger":
+    st.markdown("<h1>👥 Team Wise Billing & Balance</h1>", unsafe_allow_html=True)
+    
+    # Fetch Data
+    s_res = supabase.table("site_data").select("team_name", "team_billing", "team_paid_amt").execute()
+    
+    if s_res.data:
+        df = pd.DataFrame(s_res.data)
+        
+        # Data Cleaning for Calculation
+        df['team_billing'] = pd.to_numeric(df['team_billing']).fillna(0)
+        df['team_paid_amt'] = pd.to_numeric(df['team_paid_amt']).fillna(0)
+        
+        # Group by Team Name
+        team_df = df.groupby('team_name', as_index=False).sum()
+        team_df['Balance Amount (₹)'] = team_df['team_billing'] - team_df['team_paid_amt']
+        
+        # Rename for aesthetic display
+        team_df = team_df.rename(columns={
+            'team_name': 'Team Name',
+            'team_billing': 'Total Billing (₹)',
+            'team_paid_amt': 'Total Paid (₹)'
+        })
+        
+        st.dataframe(team_df, use_container_width=True)
+        
+        st.divider()
+        st.markdown("### 📊 Download Report")
+        st.download_button("📥 Download Excel", data=to_excel(team_df), file_name="Team_Wise_Report.xlsx")
+    else:
+        st.info("No data available to display team ledger.")
