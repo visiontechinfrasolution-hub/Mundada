@@ -155,7 +155,7 @@ elif page == "🏗️ Site Data Entry":
             st.rerun()
         st.dataframe(df.drop(columns=['id']), use_container_width=True)
 
-# --- 8. FINANCE LEDGER ---
+# --- 8. FINANCE LEDGER (FIXED TABLE LOGIC) ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
     pay_type = st.radio("Select Payment Type", ["Payment Received", "Payment Paid"], horizontal=True)
@@ -163,6 +163,10 @@ elif page == "💸 Finance Ledger":
     s_res = supabase.table("site_data").select("project_id", "received_amt", "team_paid_amt", "team_billing").execute()
     projects = ["None"] + [s['project_id'] for s in s_res.data] if s_res.data else ["None"]
     
+    # Common Data Fetch for Transactions Table
+    f_all_res = supabase.table("finance").select("*").order("transaction_date", desc=True).execute()
+    df_finance = pd.DataFrame(f_all_res.data) if f_all_res.data else pd.DataFrame()
+
     if pay_type == "Payment Received":
         c_res = supabase.table("client_master").select("client_name").execute()
         master_clients = [c['client_name'] for c in c_res.data] if c_res.data else []
@@ -177,28 +181,31 @@ elif page == "💸 Finance Ledger":
         
         if st.button("🚀 Submit Received Payment"):
             if f_client != "Select" and f_amt is not None:
-                # FIXED: Checking if project_id can be sent, if not handled via try-except
-                finance_data = {"received_from": f_client, "transaction_date": str(f_date), "received_amt": float(f_amt)}
-                if f_project != "None": finance_data["project_id"] = f_project
-                
                 try:
-                    supabase.table("finance").insert(finance_data).execute()
+                    # 'received_amt' is the column name in DB
+                    supabase.table("finance").insert({"received_from": f_client, "transaction_date": str(f_date), "received_amt": float(f_amt), "project_id": f_project if f_project != "None" else None}).execute()
                     if f_client == "Indus Towers Ltd." and f_project != "None":
                         current_row = next((item for item in s_res.data if item["project_id"] == f_project), None)
                         old_amt = float(current_row['received_amt']) if current_row and current_row['received_amt'] else 0.0
                         supabase.table("site_data").update({"received_amt": old_amt + float(f_amt)}).eq("project_id", f_project).execute()
                     st.success("Finance Ledger Updated!"); st.rerun()
-                except Exception as e:
-                    # Fallback if project_id column is missing in DB
-                    if "project_id" in str(e):
-                        del finance_data["project_id"]
-                        supabase.table("finance").insert(finance_data).execute()
-                        st.warning("Logged without Project ID (Column missing in DB)")
-                        st.rerun()
-                    else: st.error(f"Error: {e}")
+                except Exception as e: st.error(f"Error: {e}")
             else: st.error("Please fill all required fields.")
 
+        # SHOW ONLY RECEIVED TRANSACTIONS
+        st.divider()
+        st.subheader("📜 Received Payments Table")
+        if not df_finance.empty:
+            # Filtering entries where received_amt is > 0 and column paid_to is None or empty
+            # Adjusting columns to only show what is relevant
+            df_recv = df_finance[df_finance['received_amt'] > 0].copy()
+            if not df_recv.empty:
+                cols_to_show = ['received_from', 'transaction_date', 'received_amt', 'project_id', 'created_at']
+                st.dataframe(df_recv[[c for c in cols_to_show if c in df_recv.columns]], use_container_width=True)
+            else: st.info("No received payments found.")
+
     else:
+        # --- PAYMENT PAID LOGIC ---
         t_master_res = supabase.table("team_master").select("team_name").execute()
         teams_list = ["Select"] + [t['team_name'] for t in t_master_res.data] if t_master_res.data else ["Select"]
         p_team = st.selectbox("Paid To (Team Name)", teams_list)
@@ -212,27 +219,32 @@ elif page == "💸 Finance Ledger":
                 st.markdown(f"<div class='balance-box'><h3 style='color: #dc2626; margin:0;'>Current Team Balance: ₹ {billing - paid:,.0f}</h3></div>", unsafe_allow_html=True)
 
         p_date = st.date_input("Date", datetime.now(), key="paid_date")
+        # In your DB image, paid entries seem to be using 'paid_amount' column or 'received_amt' with 0. 
+        # We will use 'paid_amount' if it exists.
         p_amt = st.number_input("Paid Amt", value=None, key="paid_amt")
         
         if st.button("🚀 Submit Paid Payment"):
             if p_team != "Select" and p_amt is not None and p_project != "None":
-                finance_data = {"received_from": p_team, "transaction_date": str(p_date), "received_amt": float(p_amt), "project_id": p_project}
                 try:
-                    supabase.table("finance").insert(finance_data).execute()
+                    # In DB image 'received_from' is used for team name in paid entries too. 
+                    # Column 'paid_amount' is used for the value.
+                    supabase.table("finance").insert({"received_from": p_team, "transaction_date": str(p_date), "paid_amount": float(p_amt), "project_id": p_project}).execute()
                     current_row = next((item for item in s_res.data if item["project_id"] == p_project), None)
                     old_paid = float(current_row['team_paid_amt']) if current_row and current_row['team_paid_amt'] else 0.0
                     supabase.table("site_data").update({"team_paid_amt": old_paid + float(p_amt)}).eq("project_id", p_project).execute()
                     st.success(f"Payment recorded and Site Data Updated!"); st.rerun()
-                except Exception as e:
-                    if "project_id" in str(e):
-                        del finance_data["project_id"]
-                        supabase.table("finance").insert(finance_data).execute()
-                        st.warning("Logged without Project ID (Column missing in DB)")
-                        st.rerun()
-                    else: st.error(f"Error: {e}")
+                except Exception as e: st.error(f"Error: {e}")
             else: st.error("Team Name, Amount, and Project ID are mandatory.")
 
-    st.divider()
-    st.subheader("📜 Finance Transactions")
-    f_all = supabase.table("finance").select("*").order("transaction_date", desc=True).execute()
-    if f_all.data: st.dataframe(pd.DataFrame(f_all.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
+        # SHOW ONLY PAID TRANSACTIONS
+        st.divider()
+        st.subheader("📜 Paid Payments Table")
+        if not df_finance.empty:
+            # Filtering entries where paid_amount is > 0
+            if 'paid_amount' in df_finance.columns:
+                df_paid = df_finance[df_finance['paid_amount'] > 0].copy()
+                if not df_paid.empty:
+                    cols_to_show = ['received_from', 'transaction_date', 'paid_amount', 'project_id', 'created_at']
+                    st.dataframe(df_paid[[c for c in cols_to_show if c in df_paid.columns]], use_container_width=True)
+                else: st.info("No paid payments found.")
+            else: st.warning("Database column 'paid_amount' not detected.")
