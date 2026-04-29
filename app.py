@@ -119,7 +119,7 @@ elif page == "📝 Master Registration":
         t_res = supabase.table("team_master").select("*").execute()
         if t_res.data: st.dataframe(pd.DataFrame(t_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
 
-# --- 7. SITE DATA ENTRY (FIXED GENERATED COLUMN UPLOAD ERROR) ---
+# --- 7. SITE DATA ENTRY (FIXED GENERATED COLUMN UPLOAD ERROR FOR balance_amt) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
@@ -143,9 +143,10 @@ elif page == "🏗️ Site Data Entry":
             try:
                 df_up = pd.read_excel(uploaded_file)
                 
-                # FIXED: Drop generated/system columns so DB can calculate them itself
+                # FIXED: Drop ALL generated/system columns so DB can calculate them itself
                 if 'id' in df_up.columns: df_up = df_up.drop(columns=['id']) 
                 if 'team_balance' in df_up.columns: df_up = df_up.drop(columns=['team_balance']) 
+                if 'balance_amt' in df_up.columns: df_up = df_up.drop(columns=['balance_amt']) # ADDED THIS LINE FOR ERROR FIX
                 if 'created_at' in df_up.columns: df_up = df_up.drop(columns=['created_at']) 
                 
                 # FIXED LOGIC: Replace nan with None for JSON compliance safely
