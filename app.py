@@ -36,7 +36,7 @@ with st.sidebar:
     page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger"])
     st.info(f"User: Mayur Patil\nDate: 29-Apr-2026")
 
-# --- 5. DASHBOARD (STABLE) ---
+# --- 5. DASHBOARD ---
 if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     try:
@@ -91,7 +91,7 @@ elif page == "📝 Master Registration":
             if st.form_submit_button("Save Team"):
                 if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Saved")
 
-# --- 7. SITE DATA ENTRY (FIXED DROPDOWNS) ---
+# --- 7. SITE DATA ENTRY (FIXED TEAM NAMES DROPDOWN) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
@@ -100,9 +100,10 @@ elif page == "🏗️ Site Data Entry":
     res = supabase.table("site_data").select("*").execute()
     df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     
-    # Fetch Dynamic Team Names from team_master
+    # FETCHING TEAM NAMES FRESH EVERY TIME TO ENSURE DROPDOWN WORKS
     t_res = supabase.table("team_master").select("team_name").execute()
     teams_list = [t['team_name'] for t in t_res.data] if t_res.data else []
+    if not teams_list: teams_list = ["No Teams Found"]
 
     # ACTION BAR
     tc1, tc2, tc3, tc4 = st.columns([1, 1, 1.5, 2.5])
@@ -125,15 +126,17 @@ elif page == "🏗️ Site Data Entry":
             
             c4, c5, c6 = st.columns(3)
             cluster, p_amt = c4.text_input("Cluster", value=str(er['cluster']) if is_editing else ""), c5.number_input("Project Amount", value=float(er['project_amt']) if is_editing and er['project_amt'] else None)
-            # FIXED STATUS DROPDOWN
             st_list = ["Yet to Start", "WIP", "Completed"]
             s_idx = st_list.index(er['site_status']) if is_editing and er['site_status'] in st_list else 0
             status = c6.selectbox("Status", st_list, index=s_idx)
             
             c7, c8, c9 = st.columns(3)
             po_n, po_a = c7.text_input("PO Number", value=str(er['po_no']) if is_editing else ""), c8.number_input("PO Amount", value=float(er['po_amt']) if is_editing and er['po_amt'] else None)
-            # FIXED TEAM NAME DROPDOWN
-            t_idx = teams_list.index(er['team_name']) if is_editing and er['team_name'] in teams_list else 0
+            
+            # DROPDOWN LOGIC FIXED
+            t_idx = 0
+            if is_editing and er['team_name'] in teams_list:
+                t_idx = teams_list.index(er['team_name'])
             t_name = c9.selectbox("Team Name", teams_list, index=t_idx)
 
             c10, c11, c12 = st.columns(3)
@@ -158,7 +161,7 @@ elif page == "🏗️ Site Data Entry":
             st.rerun()
         st.dataframe(df.drop(columns=['id']), use_container_width=True)
 
-# --- 8. FINANCE LEDGER (STABLE) ---
+# --- 8. FINANCE LEDGER ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
     c_res = supabase.table("client_master").select("client_name").execute()
