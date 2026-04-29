@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 import io
 
-# --- 1. PAGE CONFIG & LAVISH CLEAN STYLE ---
+# --- 1. PAGE CONFIG & STYLE (UNTOUCHED) ---
 st.set_page_config(page_title="Visiontech Mundada", page_icon="💎", layout="wide")
 
 st.markdown("""
@@ -29,14 +29,14 @@ def to_excel(df):
         df.to_excel(writer, index=False, sheet_name='Sheet1')
     return output.getvalue()
 
-# --- 4. SIDEBAR NAVIGATION ---
+# --- 4. SIDEBAR ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #0f172a;'>MUNDADA</h1>", unsafe_allow_html=True)
     st.divider()
     page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger"])
     st.info(f"User: Mayur Patil\nDate: 29-Apr-2026")
 
-# --- 5. DASHBOARD (FIXED: BREAKDOWN RESTORED) ---
+# --- 5. DASHBOARD (FIXED: WCC LINE RESTORED) ---
 if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     try:
@@ -52,17 +52,25 @@ if page == "🏠 Dashboard":
             c2.metric("Total PO Amt", f"₹ {df_s['po_amt'].sum():,.0f}")
             
             st.divider()
-            st.markdown("### 👥 Team & WCC Recovery")
-            c3_1, c3_2, c3_3 = st.columns(3)
+            st.markdown("### 👥 Team Status")
+            c2_1, c2_2, c2_3 = st.columns(3)
             t_bill, t_paid = df_s['team_billing'].sum(), df_s['team_paid_amt'].sum()
-            c3_1.metric("Total Team Balance", f"₹ {t_bill - t_paid:,.0f}")
-            c3_2.metric("Total WCC Amt", f"₹ {df_s['wcc_amt'].sum():,.0f}")
-            c3_3.metric("Total Received Amt", f"₹ {df_s['received_amt'].sum():,.0f}")
+            c2_1.metric("Total Team Billing", f"₹ {t_bill:,.0f}")
+            c2_2.metric("Total Team Paid", f"₹ {t_paid:,.0f}")
+            c2_3.metric("Total Team Balance", f"₹ {t_bill - t_paid:,.0f}")
+            
+            st.divider()
+            # RESTORED WCC LINE
+            st.markdown("### 💳 WCC & Client Recovery")
+            c3_1, c3_2, c3_3 = st.columns(3)
+            wcc_tot, rec_tot = df_s['wcc_amt'].sum(), df_s['received_amt'].sum()
+            c3_1.metric("Total WCC Amt", f"₹ {wcc_tot:,.0f}")
+            c3_2.metric("Total Received Amt", f"₹ {rec_tot:,.0f}")
+            c3_3.metric("WCC Pending Balance", f"₹ {wcc_tot - rec_tot:,.0f}")
             
             st.divider()
             st.markdown("### 💰 Recovery Breakdown")
             c4_1, c4_2 = st.columns(2)
-            # Filter logic restored without changing variables
             m_amt = df_f[df_f['received_from'].str.contains("dilip mundada", case=False, na=False)]['received_amt'].astype(float).sum()
             i_amt = df_f[df_f['received_from'].str.contains("indus tower", case=False, na=False)]['received_amt'].astype(float).sum()
             c4_1.metric("Total Recv. From Dilip Mundada", f"₹ {m_amt:,.0f}")
@@ -84,7 +92,7 @@ elif page == "📝 Master Registration":
             if st.form_submit_button("Save Team"):
                 if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Saved")
 
-# --- 7. SITE DATA ENTRY (FIXED: ALL COLUMNS IN TABLE) ---
+# --- 7. SITE DATA ENTRY (FIXED: SINGLE TABLE WITH EDIT AT START) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
@@ -129,24 +137,41 @@ elif page == "🏗️ Site Data Entry":
                 st.rerun()
 
     st.divider()
-    # SINGLE TABLE (FIXED: ALL COLUMNS VISIBLE)
+    # SINGLE CLEAN TABLE (REMOVED DOUBLE TABLE NATAK)
     if not df.empty:
         if search: df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
-        st.subheader("📋 Detailed Database")
+        st.subheader("📋 Live Site Database")
         
-        # Action Loop for Edit Buttons
+        # Display Loop: Action Button and Main Columns
         for idx, row in df.iterrows():
             r = st.columns([0.6, 2, 2, 2, 2, 2])
+            # Edit button at the start of every line
             if r[0].button("📝", key=f"btn_{row['id']}"):
                 st.session_state.edit_row_data = row.to_dict(); st.rerun()
-            r[1].write(f"**ID:** {row['project_id']}"); r[2].write(f"**Site:** {row['site_id']}"); r[3].write(row['site_name']); r[4].write(row['team_name']); r[5].write(f"Status: {row['site_status']}")
-        
-        st.divider()
-        st.markdown("### 📊 Complete Raw Data (All Columns)")
-        # This shows every single column from Supabase
-        st.dataframe(df.drop(columns=['id']), use_container_width=True)
+            r[1].write(f"**ID:** {row['project_id']}")
+            r[2].write(f"**Site:** {row['site_id']}")
+            r[3].write(row['site_name'])
+            r[4].write(row['team_name'])
+            r[5].write(f"Status: {row['site_status']}")
+            st.divider()
+
+        with st.expander("📊 View All Columns (Horizontal Scroll)"):
+            st.dataframe(df.drop(columns=['id']), use_container_width=True)
 
 # --- 8. FINANCE LEDGER ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
-    # logic...
+    c_res = supabase.table("client_master").select("client_name").execute()
+    s_res = supabase.table("site_data").select("project_id").execute()
+    clients = [c['client_name'] for c in c_res.data] if c_res.data else []
+    projects = [s['project_id'] for s in s_res.data] if s_res.data else []
+
+    with st.form("finance_form", clear_on_submit=True):
+        c_sel = st.selectbox("Received From", ["Select"] + clients + ["dilip mundada"])
+        r_dt, r_at = st.date_input("Date", datetime.now()), st.number_input("Received Amt", value=None)
+        p_sel = st.selectbox("Project ID (For Indus/Mundada)", ["None"] + projects)
+        if st.form_submit_button("Submit Transaction"):
+            if c_sel != "Select":
+                supabase.table("finance").insert({"received_from": c_sel, "transaction_date": str(r_dt), "received_amt": r_at or 0}).execute()
+                st.success("Payment Logged!")
+                st.rerun()
