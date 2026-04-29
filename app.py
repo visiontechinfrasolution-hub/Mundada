@@ -99,7 +99,7 @@ elif page == "📝 Master Registration":
         t_res = supabase.table("team_master").select("*").execute()
         if t_res.data: st.dataframe(pd.DataFrame(t_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
 
-# --- 7. SITE DATA ENTRY ---
+# --- 7. SITE DATA ENTRY (FIXED SYNTAX ERROR) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
@@ -133,4 +133,52 @@ elif page == "🏗️ Site Data Entry":
             c10, c11, c12 = st.columns(3)
             t_bill, t_paid, wcc_n = c10.number_input("Team Billing", value=float(er['team_billing']) if is_editing and er['team_billing'] else None), c11.number_input("Team Paid", value=float(er['team_paid_amt']) if is_editing and er['team_paid_amt'] else None), c12.text_input("WCC Number", value=str(er['wcc_no']) if is_editing else "")
             c13, c14, c15 = st.columns(3)
-            wcc_a, r_amt, w_desc = c13.number_input("WCC Amount", value=float(er['wcc_amt']) if is_editing and er['wcc_amt'] else None
+            # FIXED SYNTAX BELOW: Added closing brackets for number_input
+            wcc_a = c13.number_input("WCC Amount", value=float(er['wcc_amt']) if is_editing and er['wcc_amt'] else None)
+            r_amt = c14.number_input("Received Amount", value=float(er['received_amt']) if is_editing and er['received_amt'] else None)
+            w_desc = c15.text_area("Work Description", value=str(er['work_description']) if is_editing else "")
+            
+            if st.form_submit_button("🚀 SAVE DATA"):
+                save_status = None if status == "Select" else status
+                save_team = None if t_name == "Select" else t_name
+                data = {"project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, "work_description": w_desc, "site_status": save_status, "project_amt": p_amt or 0, "po_no": po_n, "po_amt": po_a or 0, "team_name": save_team, "team_billing": t_bill or 0, "team_paid_amt": t_paid or 0, "wcc_no": wcc_n, "wcc_amt": wcc_a or 0, "received_amt": r_amt or 0}
+                if is_editing: supabase.table("site_data").update(data).eq('id', er['id']).execute(); st.session_state.edit_row_data = None
+                else: supabase.table("site_data").insert(data).execute()
+                st.rerun()
+    st.divider()
+    if not df.empty:
+        if search: df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+        st.subheader("📋 Complete Site Database (Horizontal Scroll)")
+        edit_sel = st.selectbox("🎯 Select Project ID to EDIT", ["None"] + df['project_id'].tolist())
+        if edit_sel != "None":
+            st.session_state.edit_row_data = df[df['project_id'] == edit_sel].iloc[0].to_dict()
+            st.rerun()
+        st.dataframe(df.drop(columns=['id']), use_container_width=True)
+
+# --- 8. FINANCE LEDGER (STABLE) ---
+elif page == "💸 Finance Ledger":
+    st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
+    pay_type = st.radio("Select Payment Type", ["Payment Received", "Payment Paid"], horizontal=True)
+    if pay_type == "Payment Received":
+        c_res = supabase.table("client_master").select("client_name").execute()
+        s_res = supabase.table("site_data").select("project_id", "received_amt").execute()
+        clients = ["Select"] + [c['client_name'] for c in c_res.data] if c_res.data else ["Select"]
+        if "dilip mundada" not in [c.lower() for c in clients]: clients.append("dilip mundada")
+        if "Indus Towers Ltd." not in clients: clients.append("Indus Towers Ltd.")
+        projects = ["None"] + [s['project_id'] for s in s_res.data] if s_res.data else ["None"]
+        with st.form("received_finance_form", clear_on_submit=True):
+            f_client = st.selectbox("Received From (Client)", clients)
+            f_date, f_amt = st.date_input("Date", datetime.now()), st.number_input("Received Amt", value=None)
+            f_project = "None"
+            if f_client == "Indus Towers Ltd.": f_project = st.selectbox("Project ID", projects)
+            if st.form_submit_button("Submit Received Payment"):
+                if f_client != "Select" and f_amt is not None:
+                    supabase.table("finance").insert({"received_from": f_client, "transaction_date": str(f_date), "received_amt": f_amt, "project_id": f_project if f_project != "None" else None}).execute()
+                    if f_client == "Indus Towers Ltd." and f_project != "None":
+                        current_row = next((item for item in s_res.data if item["project_id"] == f_project), None)
+                        old_amt = float(current_row['received_amt']) if current_row and current_row['received_amt'] else 0.0
+                        supabase.table("site_data").update({"received_amt": old_amt + float(f_amt)}).eq("project_id", f_project).execute()
+                    st.success("Finance Ledger Updated!"); st.rerun()
+    st.divider()
+    f_all = supabase.table("finance").select("*").order("transaction_date", desc=True).execute()
+    if f_all.data: st.dataframe(pd.DataFrame(f_all.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
