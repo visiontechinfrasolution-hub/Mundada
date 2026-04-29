@@ -16,8 +16,8 @@ st.markdown("""
         border-left: 5px solid #0ea5e9; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); 
     }
     .stButton>button { background: linear-gradient(135deg, #0f172a 0%, #334155 100%); color: white !important; border-radius: 10px; font-weight: 700; }
-    .download-btn>button { background: #10b981 !important; }
-    .upload-btn>button { background: #6366f1 !important; }
+    /* Table styling for better visibility */
+    .stDataFrame { border: 1px solid #e2e8f0; border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -40,7 +40,7 @@ with st.sidebar:
     page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger"])
     st.info(f"User: Mayur Patil\nDate: {datetime.now().strftime('%d-%b-%Y')}")
 
-# --- 5. DASHBOARD ---
+# --- 5. DASHBOARD (STABLE) ---
 if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     try:
@@ -50,13 +50,11 @@ if page == "🏠 Dashboard":
             df_s = pd.DataFrame(s_res.data)
             df_f = pd.DataFrame(f_res.data) if f_res.data else pd.DataFrame(columns=['received_from', 'received_amt'])
             
-            st.markdown("### 📍 Summary")
             c1, c2 = st.columns(2)
             c1.metric("Total Site Count", len(df_s))
             c2.metric("Total PO Amt", f"₹ {df_s['po_amt'].sum():,.0f}")
             
             st.divider()
-            st.markdown("### 👥 Team Status")
             c2_1, c2_2, c2_3 = st.columns(3)
             t_bill, t_paid = df_s['team_billing'].sum(), df_s['team_paid_amt'].sum()
             c2_1.metric("Total Team Billing", f"₹ {t_bill:,.0f}")
@@ -64,20 +62,11 @@ if page == "🏠 Dashboard":
             c2_3.metric("Total Team Balance", f"₹ {t_bill - t_paid:,.0f}")
             
             st.divider()
-            st.markdown("### 💳 WCC & Client Recovery")
             c3_1, c3_2, c3_3 = st.columns(3)
             wcc_tot, rec_tot = df_s['wcc_amt'].sum(), df_s['received_amt'].sum()
             c3_1.metric("Total WCC Amt", f"₹ {wcc_tot:,.0f}")
             c3_2.metric("Total Received Amt", f"₹ {rec_tot:,.0f}")
             c3_3.metric("WCC Balance", f"₹ {wcc_tot - rec_tot:,.0f}")
-            
-            st.divider()
-            st.markdown("### 💰 Breakdown")
-            c4_1, c4_2 = st.columns(2)
-            mundada_amt = df_f[df_f['received_from'].str.contains("dilip mundada", case=False, na=False)]['received_amt'].astype(float).sum()
-            indus_amt = df_f[df_f['received_from'].str.contains("indus tower", case=False, na=False)]['received_amt'].astype(float).sum()
-            c4_1.metric("Recv. From Dilip Mundada", f"₹ {mundada_amt:,.0f}")
-            c4_2.metric("Recv. From Indus Towers", f"₹ {indus_amt:,.0f}")
     except: pass
 
 # --- 6. MASTER REGISTRATION ---
@@ -95,18 +84,18 @@ elif page == "📝 Master Registration":
             if st.form_submit_button("Save Team"):
                 if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Saved")
 
-# --- 7. SITE DATA ENTRY (POP-UP & DOWNLOAD/UPLOAD) ---
+# --- 7. SITE DATA ENTRY (ALL COLUMNS + POPUP + DL/UL) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
     if "edit_row" not in st.session_state: st.session_state.edit_row = None
     if "show_modal" not in st.session_state: st.session_state.show_modal = False
 
-    # DATA FETCH
+    # FETCH DATA
     res = supabase.table("site_data").select("*").execute()
     df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
 
-    # TOP BUTTONS (Download / Upload / New Site)
+    # ACTION BUTTONS
     tc1, tc2, tc3, tc4 = st.columns([1.5, 1.5, 1.5, 3])
     
     if tc1.button("➕ New Site"):
@@ -118,18 +107,11 @@ elif page == "🏗️ Site Data Entry":
         tc2.download_button("📥 Download Excel", data=to_excel(df), file_name="Site_Data.xlsx")
     
     uploaded_file = tc3.file_uploader("📤 Bulk Upload", type=['xlsx'], label_visibility="collapsed")
-    if uploaded_file:
-        try:
-            up_df = pd.read_excel(uploaded_file)
-            st.success(f"{len(up_df)} sites detected. Upload logic ready.")
-        except: st.error("Invalid File")
-
-    # SEARCH
     search = tc4.text_input("🔍 Search Database...", label_visibility="collapsed")
 
-    # POP-UP FORM (MODAL)
+    # POP-UP MODAL (EXPANDER)
     if st.session_state.show_modal:
-        with st.expander("📝 SITE DATA FORM", expanded=True):
+        with st.expander("📝 SITE ENTRY FORM", expanded=True):
             er = st.session_state.edit_row
             with st.form("modal_form"):
                 c1, c2, c3 = st.columns(3)
@@ -157,35 +139,45 @@ elif page == "🏗️ Site Data Entry":
                 r_amt = c14.number_input("Recv Amt", value=float(er['received_amt']) if er else 0.0)
                 w_desc = c15.text_area("Work Description", value=er['work_description'] if er else "")
 
-                mc1, mc2 = st.columns([1, 1])
-                if mc1.form_submit_button("💾 Save / Sync"):
+                sc1, sc2 = st.columns(2)
+                if sc1.form_submit_button("💾 Save & Sync"):
                     data = {"project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, "work_description": w_desc, "site_status": status, "project_amt": p_amt, "po_no": po_n, "po_amt": po_a, "team_name": t_name, "team_billing": t_bill, "team_paid_amt": t_paid, "wcc_no": wcc_n, "wcc_amt": wcc_a, "received_amt": r_amt}
                     if er: supabase.table("site_data").update(data).eq('id', er['id']).execute()
                     else: supabase.table("site_data").insert(data).execute()
                     st.session_state.show_modal = False
                     st.rerun()
-                if mc2.form_submit_button("❌ Close"):
+                if sc2.form_submit_button("❌ Cancel"):
                     st.session_state.show_modal = False
                     st.rerun()
 
     st.divider()
     
-    # DATA TABLE
+    # FULL DATA TABLE
     if not df.empty:
         if search: df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
         
-        h = st.columns([0.5, 2, 2, 2, 2, 2])
-        h[0].write("**Edit**"); h[1].write("**Project ID**"); h[2].write("**Site ID**"); h[3].write("**Site Name**"); h[4].write("**Team**"); h[5].write("**Status**")
+        # Displaying all key columns from Supabase
+        st.write("### 📋 Detailed Records")
         
-        for idx, row in df.iterrows():
-            r = st.columns([0.5, 2, 2, 2, 2, 2])
-            if r[0].button("📝", key=f"edit_{row['id']}"):
+        # We use st.dataframe here to show ALL columns easily with horizontal scroll
+        # and manual Edit buttons below for specific actions.
+        
+        # Display table with scroll
+        st.dataframe(df, use_container_width=True)
+        
+        st.markdown("---")
+        st.subheader("⚡ Quick Edit Actions")
+        # Horizontal layout for edit buttons
+        for idx, row in df.head(20).iterrows(): # Showing top 20 for quick edit
+            ec1, ec2, ec3, ec4 = st.columns([1, 2, 2, 5])
+            if ec1.button("📝 Edit", key=f"ed_{row['id']}"):
                 st.session_state.edit_row = row
                 st.session_state.show_modal = True
                 st.rerun()
-            r[1].write(row['project_id']); r[2].write(row['site_id']); r[3].write(row['site_name']); r[4].write(row['team_name']); r[5].write(row['site_status'])
+            ec2.write(f"**ID:** {row['project_id']}")
+            ec3.write(f"**Site:** {row['site_id']}")
+            ec4.write(f"**Status:** {row['site_status']}")
 
 # --- 8. FINANCE LEDGER ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
-    # Stable finance logic...
