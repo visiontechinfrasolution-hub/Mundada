@@ -34,7 +34,7 @@ def to_excel(df):
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #0f172a;'>MUNDADA</h1>", unsafe_allow_html=True)
     st.divider()
-    page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger"])
+    page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger"], key="nav_page")
     st.info(f"User: Mayur Patil\nDate: 29-Apr-2026")
 
 # --- 5. DASHBOARD ---
@@ -85,7 +85,12 @@ elif page == "📝 Master Registration":
         with st.form("cl_reg"):
             cn = st.text_input("Client Name")
             if st.form_submit_button("Save Client"):
-                if cn: supabase.table("client_master").insert({"client_name": cn}).execute(); st.success("Saved"); st.rerun()
+                if cn: 
+                    supabase.table("client_master").insert({"client_name": cn}).execute()
+                    st.success("Saved")
+                    for k in list(st.session_state.keys()): 
+                        if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
+                    st.rerun()
         st.divider()
         st.subheader("👥 Registered Clients")
         c_res = supabase.table("client_master").select("*").execute()
@@ -94,7 +99,12 @@ elif page == "📝 Master Registration":
         with st.form("tm_reg"):
             tn, tl = st.text_input("Team Name"), st.text_input("Leader Name")
             if st.form_submit_button("Save Team"):
-                if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Saved"); st.rerun()
+                if tn: 
+                    supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute()
+                    st.success("Saved")
+                    for k in list(st.session_state.keys()): 
+                        if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
+                    st.rerun()
         st.divider()
         st.subheader("🛠️ Registered Teams")
         t_res = supabase.table("team_master").select("*").execute()
@@ -108,16 +118,21 @@ elif page == "🏗️ Site Data Entry":
     df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     t_res = supabase.table("team_master").select("team_name").execute()
     teams_list = ["Select"] + [t['team_name'] for t in t_res.data] if t_res.data else ["Select"]
+    
     tc1, tc2, tc3, tc4 = st.columns([1, 1, 1.5, 2.5])
     if tc1.button("➕ New Site"): 
         st.session_state.edit_row_data = None
+        for k in list(st.session_state.keys()): 
+            if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
         st.rerun()
     if not df.empty: tc2.download_button("📥 Download", data=to_excel(df), file_name="Site_Data.xlsx")
     uploaded_file = tc3.file_uploader("📤 Bulk Upload", type=['xlsx'], label_visibility="collapsed")
     search = tc4.text_input("🔍 Search Database...", placeholder="Search Site ID, Project ID...")
+    
     er = st.session_state.edit_row_data
     is_editing = er is not None
     exp_label = f"📝 Editing Record: {er['project_id']}" if is_editing else "➕ Add New Site Entry"
+    
     with st.expander(exp_label, expanded=is_editing):
         with st.form("site_full_form", clear_on_submit=not is_editing):
             c1, c2, c3 = st.columns(3)
@@ -138,13 +153,19 @@ elif page == "🏗️ Site Data Entry":
             wcc_a = c13.number_input("WCC Amount", value=float(er['wcc_amt']) if is_editing and er['wcc_amt'] else None)
             r_amt = c14.number_input("Received Amount", value=float(er['received_amt']) if is_editing and er['received_amt'] else None)
             w_desc = c15.text_area("Work Description", value=str(er['work_description']) if is_editing else "")
+            
             if st.form_submit_button("🚀 SAVE DATA"):
                 save_status = None if status == "Select" else status
                 save_team = None if t_name == "Select" else t_name
                 data = {"project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, "work_description": w_desc, "site_status": save_status, "project_amt": p_amt or 0, "po_no": po_n, "po_amt": po_a or 0, "team_name": save_team, "team_billing": t_bill or 0, "team_paid_amt": t_paid or 0, "wcc_no": wcc_n, "wcc_amt": wcc_a or 0, "received_amt": r_amt or 0}
                 if is_editing: supabase.table("site_data").update(data).eq('id', er['id']).execute(); st.session_state.edit_row_data = None
                 else: supabase.table("site_data").insert(data).execute()
+                
+                # CLEAR FORM WIDGET DATA AND REFRESH
+                for k in list(st.session_state.keys()): 
+                    if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
                 st.rerun()
+
     st.divider()
     if not df.empty:
         if search: df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
@@ -152,13 +173,15 @@ elif page == "🏗️ Site Data Entry":
         edit_sel = st.selectbox("🎯 Select Project ID to EDIT", ["None"] + df['project_id'].tolist())
         if edit_sel != "None":
             st.session_state.edit_row_data = df[df['project_id'] == edit_sel].iloc[0].to_dict()
+            for k in list(st.session_state.keys()): 
+                if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
             st.rerun()
         st.dataframe(df.drop(columns=['id']), use_container_width=True)
 
-# --- 8. FINANCE LEDGER (FIXED FOR SCHEMA CACHE ERROR) ---
+# --- 8. FINANCE LEDGER ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
-    pay_type = st.radio("Select Payment Type", ["Payment Received", "Payment Paid"], horizontal=True)
+    pay_type = st.radio("Select Payment Type", ["Payment Received", "Payment Paid"], horizontal=True, key="pay_type")
     
     s_res = supabase.table("site_data").select("project_id", "received_amt", "team_paid_amt", "team_billing").execute()
     projects = ["None"] + [s['project_id'] for s in s_res.data] if s_res.data else ["None"]
@@ -173,22 +196,26 @@ elif page == "💸 Finance Ledger":
         clients = ["Select"] + sorted(list(combined))
 
         f_client = st.selectbox("Received From (Client)", clients)
-        f_date = st.date_input("Date", datetime.now(), key="recv_date")
-        f_amt = st.number_input("Received Amt", value=None, key="recv_amt")
+        f_date = st.date_input("Date", datetime.now())
+        f_amt = st.number_input("Received Amt", value=None)
         f_project = "None"
-        if f_client == "Indus Towers Ltd.": f_project = st.selectbox("Project ID", projects, key="recv_proj")
+        if f_client == "Indus Towers Ltd.": f_project = st.selectbox("Project ID", projects)
         
         if st.button("🚀 Submit Received Payment"):
             if f_client != "Select" and f_amt is not None:
                 finance_data = {"received_from": f_client, "transaction_date": str(f_date), "received_amt": float(f_amt)}
                 try:
-                    # Logic: Removing project_id if it causes schema cache errors
                     supabase.table("finance").insert(finance_data).execute()
                     if f_client == "Indus Towers Ltd." and f_project != "None":
                         current_row = next((item for item in s_res.data if item["project_id"] == f_project), None)
                         old_amt = float(current_row['received_amt']) if current_row and current_row['received_amt'] else 0.0
                         supabase.table("site_data").update({"received_amt": old_amt + float(f_amt)}).eq("project_id", f_project).execute()
-                    st.success("Finance Ledger Updated!"); st.rerun()
+                    st.success("Finance Ledger Updated!")
+                    
+                    # CLEAR FINANCE WIDGET DATA AND REFRESH
+                    for k in list(st.session_state.keys()): 
+                        if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
+                    st.rerun()
                 except Exception as e: st.error(f"Error: {e}")
             else: st.error("Please fill all required fields.")
 
@@ -204,7 +231,7 @@ elif page == "💸 Finance Ledger":
         t_master_res = supabase.table("team_master").select("team_name").execute()
         teams_list = ["Select"] + [t['team_name'] for t in t_master_res.data] if t_master_res.data else ["Select"]
         p_team = st.selectbox("Paid To (Team Name)", teams_list)
-        p_project = st.selectbox("Project ID", projects, key="paid_proj")
+        p_project = st.selectbox("Project ID", projects)
         
         if p_project != "None":
             site_info = next((item for item in s_res.data if item["project_id"] == p_project), None)
@@ -213,8 +240,8 @@ elif page == "💸 Finance Ledger":
                 paid = float(site_info['team_paid_amt']) if site_info['team_paid_amt'] else 0.0
                 st.markdown(f"<div class='balance-box'><h3 style='color: #dc2626; margin:0;'>Current Team Balance: ₹ {billing - paid:,.0f}</h3></div>", unsafe_allow_html=True)
 
-        p_date = st.date_input("Date", datetime.now(), key="paid_date")
-        p_amt = st.number_input("Paid Amt", value=None, key="paid_amt")
+        p_date = st.date_input("Date", datetime.now())
+        p_amt = st.number_input("Paid Amt", value=None)
         
         if st.button("🚀 Submit Paid Payment"):
             if p_team != "Select" and p_amt is not None and p_project != "None":
@@ -224,7 +251,12 @@ elif page == "💸 Finance Ledger":
                     current_row = next((item for item in s_res.data if item["project_id"] == p_project), None)
                     old_paid = float(current_row['team_paid_amt']) if current_row and current_row['team_paid_amt'] else 0.0
                     supabase.table("site_data").update({"team_paid_amt": old_paid + float(p_amt)}).eq("project_id", p_project).execute()
-                    st.success(f"Payment recorded and Site Data Updated!"); st.rerun()
+                    st.success(f"Payment recorded and Site Data Updated!")
+                    
+                    # CLEAR FINANCE WIDGET DATA AND REFRESH
+                    for k in list(st.session_state.keys()): 
+                        if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
+                    st.rerun()
                 except Exception as e: st.error(f"Error: {e}")
             else: st.error("Team Name, Amount, and Project ID are mandatory.")
 
