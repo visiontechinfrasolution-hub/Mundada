@@ -1,4 +1,88 @@
-# --- 7. SITE DATA ENTRY (ONLY NEW/FIXED LINES) ---
+import streamlit as st
+from supabase import create_client, Client
+import pandas as pd
+from datetime import datetime
+import io
+
+# --- 1. PAGE CONFIG & LAVISH CLEAN STYLE ---
+st.set_page_config(page_title="Visiontech Mundada", page_icon="💎", layout="wide")
+
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap');
+    html, body, [class*="st-"] { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #ffffff; }
+    div[data-testid="stMetric"] { background: #ffffff; border-radius: 15px; padding: 20px; border-left: 5px solid #0ea5e9; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); }
+    .stButton>button { background: linear-gradient(135deg, #0f172a 0%, #334155 100%); color: white !important; border-radius: 10px; font-weight: 700; }
+    div.stForm { background: #f8fafc; border-radius: 20px; border: 1px solid #e2e8f0; padding: 30px; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 2. SUPABASE CONNECTION ---
+URL = "https://rdfntkqdpsotoerfrhiv.supabase.co"
+KEY = "sb_publishable_nm3ciqWOzXwRj1pSj1NagA__WV9eVBc"
+supabase = create_client(URL, KEY)
+
+# --- 3. HELPERS ---
+def to_excel(df):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Sheet1')
+    return output.getvalue()
+
+# --- 4. SIDEBAR NAVIGATION ---
+with st.sidebar:
+    st.markdown("<h1 style='text-align: center; color: #0f172a;'>MUNDADA</h1>", unsafe_allow_html=True)
+    st.divider()
+    page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger"])
+    st.info(f"User: Mayur Patil\nDate: 29-Apr-2026")
+
+# --- 5. DASHBOARD (STABLE BREAKDOWN & WCC) ---
+if page == "🏠 Dashboard":
+    st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
+    try:
+        s_res = supabase.table("site_data").select("*").execute()
+        f_res = supabase.table("finance").select("*").execute()
+        if s_res.data:
+            df_s = pd.DataFrame(s_res.data)
+            df_f = pd.DataFrame(f_res.data) if f_res.data else pd.DataFrame(columns=['received_from', 'received_amt'])
+            
+            st.markdown("### 📍 Summary")
+            c1, c2 = st.columns(2)
+            c1.metric("Total Site Count", len(df_s))
+            c2.metric("Total PO Amt", f"₹ {df_s['po_amt'].sum():,.0f}")
+            
+            st.divider()
+            st.markdown("### 👥 Team & WCC Recovery")
+            c3_1, c3_2, c3_3 = st.columns(3)
+            t_bill, t_paid = df_s['team_billing'].sum(), df_s['team_paid_amt'].sum()
+            c3_1.metric("Total Team Balance", f"₹ {t_bill - t_paid:,.0f}")
+            c3_2.metric("Total WCC Amt", f"₹ {df_s['wcc_amt'].sum():,.0f}")
+            c3_3.metric("Total Received Amt", f"₹ {df_s['received_amt'].sum():,.0f}")
+            
+            st.divider()
+            st.markdown("### 💰 Breakdown")
+            c4_1, c4_2 = st.columns(2)
+            m_amt = df_f[df_f['received_from'].str.contains("dilip mundada", case=False, na=False)]['received_amt'].astype(float).sum()
+            i_amt = df_f[df_f['received_from'].str.contains("indus tower", case=False, na=False)]['received_amt'].astype(float).sum()
+            c4_1.metric("Recv. From Dilip Mundada", f"₹ {m_amt:,.0f}"); c4_2.metric("Recv. From Indus Towers", f"₹ {i_amt:,.0f}")
+    except: st.info("Dashboard loading...")
+
+# --- 6. MASTER REGISTRATION ---
+elif page == "📝 Master Registration":
+    st.markdown("<h1>📋 Master Registry</h1>", unsafe_allow_html=True)
+    tab1, tab2 = st.tabs(["👥 Clients", "🛠️ Teams"])
+    with tab1:
+        with st.form("cl_reg"):
+            cn = st.text_input("Client Name")
+            if st.form_submit_button("Save Client"):
+                if cn: supabase.table("client_master").insert({"client_name": cn}).execute(); st.success("Saved")
+    with tab2:
+        with st.form("tm_reg"):
+            tn, tl = st.text_input("Team Name"), st.text_input("Leader Name")
+            if st.form_submit_button("Save Team"):
+                if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Saved")
+
+# --- 7. SITE DATA ENTRY (FIXED SINGLE TABLE + UPLOAD) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
@@ -7,18 +91,16 @@ elif page == "🏗️ Site Data Entry":
     res = supabase.table("site_data").select("*").execute()
     df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
 
-    # ACTION BAR (UPLOAD WAPAS LAYA GAYA HAI)
+    # ACTION BAR
     tc1, tc2, tc3, tc4 = st.columns([1, 1, 1.5, 2.5])
     if tc1.button("➕ New Site"): 
         st.session_state.edit_row_data = None
         st.rerun()
     if not df.empty: tc2.download_button("📥 Download", data=to_excel(df), file_name="Site_Data.xlsx")
-    
-    # Bulk Upload Section - Fixed Position
     uploaded_file = tc3.file_uploader("📤 Bulk Upload", type=['xlsx'], label_visibility="collapsed")
-    search = tc4.text_input("🔍 Search Database...", placeholder="Search Site ID, Project ID...")
+    search = tc4.text_input("🔍 Search Database...", placeholder="Project ID, Site ID...")
 
-    # FORM SECTION (SAME LOGIC - NO CHANGE)
+    # FORM SECTION
     er = st.session_state.edit_row_data
     is_editing = er is not None
     exp_label = f"📝 Editing: {er['project_id']}" if is_editing else "➕ Add New Site Entry"
@@ -46,33 +128,34 @@ elif page == "🏗️ Site Data Entry":
                 st.rerun()
 
     st.divider()
-    
-    # SINGLE CLEAN TABLE VIEW (DO TABLE WALA KAAM KHATAM)
+    # SINGLE CLEAN TABLE
     if not df.empty:
         if search: df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
-        
         st.subheader("📋 Detailed Database")
-        
-        # Display Logic: Action Button and Horizontal Data in one Row
         for idx, row in df.iterrows():
-            # Column configuration to match your 'Lavish' look
             r = st.columns([0.6, 1.5, 1.5, 2, 2, 1.5, 2])
             if r[0].button("📝", key=f"btn_{row['id']}"):
-                st.session_state.edit_row_data = row.to_dict()
-                st.rerun()
-            
-            # Show all key columns in one row
-            r[1].write(f"**ID:** {row['project_id']}")
-            r[2].write(f"**Site:** {row['site_id']}")
-            r[3].write(row['site_name'])
-            r[4].write(row['team_name'])
-            r[5].write(f"Status: {row['site_status']}")
-            
-            # Calculate Balance for display
+                st.session_state.edit_row_data = row.to_dict(); st.rerun()
+            r[1].write(f"**ID:** {row['project_id']}"); r[2].write(f"**Site:** {row['site_id']}"); r[3].write(row['site_name']); r[4].write(row['team_name']); r[5].write(f"Status: {row['site_status']}")
             bal = float(row['team_billing'] or 0) - float(row['team_paid_amt'] or 0)
-            r[6].write(f"Bal: ₹{bal:,.0f}")
-            st.divider()
-
-        # Download raw data hidden at bottom if needed
-        with st.expander("📊 View Complete Raw Data Grid"):
+            r[6].write(f"Bal: ₹{bal:,.0f}"); st.divider()
+        with st.expander("📊 Complete Data Grid View"):
             st.dataframe(df.drop(columns=['id']), use_container_width=True)
+
+# --- 8. FINANCE LEDGER ---
+elif page == "💸 Finance Ledger":
+    st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
+    c_res = supabase.table("client_master").select("client_name").execute()
+    s_res = supabase.table("site_data").select("project_id").execute()
+    clients = [c['client_name'] for c in c_res.data] if c_res.data else []
+    projects = [s['project_id'] for s in s_res.data] if s_res.data else []
+
+    with st.form("finance_form", clear_on_submit=True):
+        c_sel = st.selectbox("Received From", ["Select"] + clients + ["dilip mundada"])
+        r_dt, r_at = st.date_input("Date", datetime.now()), st.number_input("Received Amt", value=None)
+        p_sel = st.selectbox("Project ID (For Indus/Mundada)", ["None"] + projects)
+        if st.form_submit_button("Submit Transaction"):
+            if c_sel != "Select":
+                supabase.table("finance").insert({"received_from": c_sel, "transaction_date": str(r_dt), "received_amt": r_at or 0}).execute()
+                st.success("Payment Logged!")
+                st.rerun()
