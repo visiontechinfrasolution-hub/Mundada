@@ -36,7 +36,7 @@ with st.sidebar:
     page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger"])
     st.info(f"User: Mayur Patil\nDate: {datetime.now().strftime('%d-%b-%Y')}")
 
-# --- 5. DASHBOARD (UNTOUCHED STABLE LOGIC) ---
+# --- 5. DASHBOARD (RECOVERY ITEMS RESTORED) ---
 if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     try:
@@ -45,24 +45,39 @@ if page == "🏠 Dashboard":
         if s_res.data:
             df_s = pd.DataFrame(s_res.data)
             df_f = pd.DataFrame(f_res.data) if f_res.data else pd.DataFrame(columns=['received_from', 'received_amt'])
+            
+            st.markdown("### 📍 Summary")
             c1, c2 = st.columns(2)
             c1.metric("Total Site Count", len(df_s))
             c2.metric("Total PO Amt", f"₹ {df_s['po_amt'].sum():,.0f}")
+            
             st.divider()
+            st.markdown("### 👥 Team Status")
             c2_1, c2_2, c2_3 = st.columns(3)
             t_bill, t_paid = df_s['team_billing'].sum(), df_s['team_paid_amt'].sum()
             c2_1.metric("Total Team Billing", f"₹ {t_bill:,.0f}")
             c2_2.metric("Total Team Paid", f"₹ {t_paid:,.0f}")
             c2_3.metric("Total Team Balance", f"₹ {t_bill - t_paid:,.0f}")
+            
             st.divider()
+            st.markdown("### 💳 WCC & Client Recovery")
             c3_1, c3_2, c3_3 = st.columns(3)
             wcc_tot, rec_tot = df_s['wcc_amt'].sum(), df_s['received_amt'].sum()
             c3_1.metric("Total WCC Amt", f"₹ {wcc_tot:,.0f}")
             c3_2.metric("Total Received Amt", f"₹ {rec_tot:,.0f}")
             c3_3.metric("WCC Balance", f"₹ {wcc_tot - rec_tot:,.0f}")
-    except: pass
+            
+            st.divider()
+            # RESTORED: Specific Collection Breakdown
+            st.markdown("### 💰 Recovery Breakdown")
+            c4_1, c4_2 = st.columns(2)
+            mundada_amt = df_f[df_f['received_from'].str.contains("dilip mundada", case=False, na=False)]['received_amt'].astype(float).sum()
+            indus_amt = df_f[df_f['received_from'].str.contains("indus tower", case=False, na=False)]['received_amt'].astype(float).sum()
+            c4_1.metric("Total Recv. From Dilip Mundada", f"₹ {mundada_amt:,.0f}")
+            c4_2.metric("Total Recv. From Indus Towers", f"₹ {indus_amt:,.0f}")
+    except: st.info("Welcome! Start adding data.")
 
-# --- 6. MASTER REGISTRATION (UNTOUCHED) ---
+# --- 6. MASTER REGISTRATION ---
 elif page == "📝 Master Registration":
     st.markdown("<h1>📋 Master Registry</h1>", unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["👥 Clients", "🛠️ Teams"])
@@ -77,10 +92,9 @@ elif page == "📝 Master Registration":
             if st.form_submit_button("Save Team"):
                 if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Saved")
 
-# --- 7. SITE DATA ENTRY (FIXED BLANK FIELDS) ---
+# --- 7. SITE DATA ENTRY (BLANK FIELDS & FULL TABLE) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
-    
     if "edit_row" not in st.session_state: st.session_state.edit_row = None
     if "show_modal" not in st.session_state: st.session_state.show_modal = False
 
@@ -97,7 +111,7 @@ elif page == "🏗️ Site Data Entry":
     uploaded_file = tc3.file_uploader("📤 Bulk Upload", type=['xlsx'], label_visibility="collapsed")
     search = tc4.text_input("🔍 Search Database...", label_visibility="collapsed")
 
-    # POP-UP FORM (NUMERIC FIELDS FIXED TO BLANK)
+    # POP-UP MODAL (BLANK NUMERIC FIELDS)
     if st.session_state.show_modal:
         with st.expander("📝 SITE ENTRY FORM", expanded=True):
             er = st.session_state.edit_row
@@ -109,10 +123,8 @@ elif page == "🏗️ Site Data Entry":
                 
                 c4, c5, c6 = st.columns(3)
                 cluster = c4.text_input("Cluster", value=er['cluster'] if er else "")
-                # FIXED: value=None makes it blank
                 p_amt = c5.number_input("Project Amt", value=float(er['project_amt']) if er else None)
-                st_list = ["Planning", "WIP", "WCC Done", "Closed"]
-                status = c6.selectbox("Status", st_list, index=st_list.index(er['site_status']) if er and er['site_status'] in st_list else 0)
+                status = c6.selectbox("Status", ["Planning", "WIP", "WCC Done", "Closed"])
 
                 c7, c8, c9 = st.columns(3)
                 po_n = c7.text_input("PO No", value=er['po_no'] if er else "")
@@ -141,11 +153,13 @@ elif page == "🏗️ Site Data Entry":
                     st.rerun()
 
     st.divider()
+    # FULL TABLE DISPLAY
     if not df.empty:
         if search: df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
         st.dataframe(df, use_container_width=True)
         st.markdown("---")
-        for idx, row in df.head(10).iterrows():
+        st.subheader("⚡ Quick Actions")
+        for idx, row in df.head(15).iterrows():
             ec1, ec2, ec3, ec4 = st.columns([1, 2, 2, 5])
             if ec1.button("📝 Edit", key=f"ed_{row['id']}"):
                 st.session_state.edit_row = row
@@ -155,7 +169,7 @@ elif page == "🏗️ Site Data Entry":
             ec3.write(f"**Site:** {row['site_id']}")
             ec4.write(f"**Status:** {row['site_status']}")
 
-# --- 8. FINANCE LEDGER (UNTOUCHED) ---
+# --- 8. FINANCE LEDGER ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
-    # Stable logic remains same...
+    # Stable finance logic remains same...
