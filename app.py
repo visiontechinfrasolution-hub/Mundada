@@ -36,9 +36,9 @@ def get_supabase():
 
 supabase = get_supabase()
 
-# --- 3. HELPER FUNCTIONS ---
+# --- 3. HELPER FUNCTIONS (Strict Logic) ---
 def format_df_dates(df):
-    """Sabh tables mein date ko strictly 29-Apr-2026 format mein convert karta hai"""
+    """Strict Date Format: 29-Apr-2026"""
     date_cols = ['transaction_date', 'created_at', 'Date', 'date']
     for col in df.columns:
         if any(d in col.lower() for d in date_cols):
@@ -65,136 +65,102 @@ with st.sidebar:
 if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     try:
-        # Fetch data from both tables
         s_res = supabase.table("site_data").select("*").execute()
         f_res = supabase.table("finance").select("*").execute()
-        
         if s_res.data:
-            df_s = pd.DataFrame(s_res.data)
-            df_f = pd.DataFrame(f_res.data) if f_res.data else pd.DataFrame()
-
-            # Line 1: General Summary
+            df_s, df_f = pd.DataFrame(s_res.data), (pd.DataFrame(f_res.data) if f_res.data else pd.DataFrame())
             st.markdown("### 📍 Project Summary")
             c1_1, c1_2 = st.columns(2)
             c1_1.metric("Total Site Count", len(df_s))
             c1_2.metric("Total PO Amt", f"₹ {df_s['po_amt'].sum():,.0f}")
-            
             st.divider()
-            # Line 2: Team Financials
             st.markdown("### 👥 Team & Vendor Status")
             c2_1, c2_2, c2_3 = st.columns(3)
             t_bill, t_paid = df_s['team_billing'].sum(), df_s['team_paid_amt'].sum()
-            c2_1.metric("Total Team Billing", f"₹ {t_bill:,.0f}")
-            c2_2.metric("Total Team Paid", f"₹ {t_paid:,.0f}")
-            c2_3.metric("Total Team Balance", f"₹ {t_bill - t_paid:,.0f}")
-            
+            c2_1.metric("Total Team Billing", f"₹ {t_bill:,.0f}"); c2_2.metric("Total Team Paid", f"₹ {t_paid:,.0f}"); c2_3.metric("Total Team Balance", f"₹ {t_bill - t_paid:,.0f}")
             st.divider()
-            # Line 3: WCC Recovery
             st.markdown("### 💳 Client Recovery (WCC)")
             c3_1, c3_2, c3_3 = st.columns(3)
             wcc_tot, rec_tot = df_s['wcc_amt'].sum(), df_s['received_amt'].sum()
-            c3_1.metric("Total WCC Amt", f"₹ {wcc_tot:,.0f}")
-            c3_2.metric("Total Received Amt", f"₹ {rec_tot:,.0f}")
-            c3_3.metric("Total Balance", f"₹ {wcc_tot - rec_tot:,.0f}")
-
+            c3_1.metric("Total WCC Amt", f"₹ {wcc_tot:,.0f}"); c3_2.metric("Total Received Amt", f"₹ {rec_tot:,.0f}"); c3_3.metric("Total Balance", f"₹ {wcc_tot - rec_tot:,.0f}")
             st.divider()
-            # Line 4: Specific Received Filters (From Finance Table)
             st.markdown("### 💰 Specific Collection Breakdown")
             c4_1, c4_2 = st.columns(2)
-            
-            if not df_f.empty:
-                # Filter for Dilip Mundada
-                mundada_total = df_f[df_f['received_from'].str.contains("dilip mundada", case=False, na=False)]['received_amt'].sum()
-                # Filter for Indus Towers
-                indus_total = df_f[df_f['received_from'].str.contains("indus tower", case=False, na=False)]['received_amt'].sum()
-            else:
-                mundada_total, indus_total = 0, 0
-
+            mundada_total = df_f[df_f['received_from'].str.contains("dilip mundada", case=False, na=False)]['received_amt'].sum() if not df_f.empty else 0
+            indus_total = df_f[df_f['received_from'].str.contains("indus tower", case=False, na=False)]['received_amt'].sum() if not df_f.empty else 0
             c4_1.metric("Total Recv. From Dilip Mundada", f"₹ {mundada_total:,.0f}")
             c4_2.metric("Total Recv. From Indus Towers", f"₹ {indus_total:,.0f}")
-            
-        else:
-            st.info("💡 Start by registering sites to activate the dashboard.")
-    except Exception as e:
-        st.error(f"Dashboard Error: {e}")
+        else: st.info("Register sites to activate dashboard.")
+    except Exception as e: st.error(f"Error: {e}")
 
-# --- 6. MASTER REGISTRATION (REMAINS SAME) ---
+# --- 6. MASTER REGISTRATION (FIXED BLANK TEAM TAB) ---
 elif page == "📝 Master Registration":
     st.markdown("<h1>📋 Master Registry</h1>", unsafe_allow_html=True)
-    t1, t2 = st.tabs(["👥 Clients", "🛠️ Teams"])
-    with t1:
-        with st.form("c_f", clear_on_submit=True):
+    tab1, tab2 = st.tabs(["👥 Clients", "🛠️ Teams"])
+    with tab1:
+        with st.form("client_master_form", clear_on_submit=True):
             cn = st.text_input("Client Name")
             if st.form_submit_button("Save Client"):
-                if cn: supabase.table("client_master").insert({"client_name": cn}).execute()
-                st.success("Saved")
+                if cn: supabase.table("client_master").insert({"client_name": cn}).execute(); st.success("Saved")
         res_c = supabase.table("client_master").select("*").execute()
-        if res_c.data:
-            st.dataframe(format_df_dates(pd.DataFrame(res_c.data).drop(columns=['id'], errors='ignore')), use_container_width=True)
+        if res_c.data: st.dataframe(format_df_dates(pd.DataFrame(res_c.data).drop(columns=['id'], errors='ignore')), use_container_width=True)
+    
+    with tab2: # FIXED: This was blank in previous code
+        with st.form("team_master_form", clear_on_submit=True):
+            tn = st.text_input("Team Name")
+            tl = st.text_input("Team Leader Name")
+            if st.form_submit_button("Save Team"):
+                if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Team Saved")
+        res_t = supabase.table("team_master").select("*").execute()
+        if res_t.data: st.dataframe(format_df_dates(pd.DataFrame(res_t.data).drop(columns=['id'], errors='ignore')), use_container_width=True)
 
-# --- 7. SITE DATA ENTRY (BLANK AMOUNTS) ---
+# --- 7. SITE DATA ENTRY (NO CHANGE) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Registration</h1>", unsafe_allow_html=True)
     c_res = supabase.table("client_master").select("client_name").execute()
     clients = [c['client_name'] for c in c_res.data] if c_res.data else []
-
-    with st.form("s_f", clear_on_submit=True):
+    with st.form("site_entry_form", clear_on_submit=True):
         r1, r2, r3 = st.columns(3)
         p_id, s_id, cl = r1.text_input("Project ID"), r2.text_input("Site ID"), r3.selectbox("Client", ["Select"]+clients)
         r4, r5, r6 = st.columns(3)
-        p_amt = r4.number_input("Project Amt", value=None) # Blank
-        po_no = r5.text_input("PO No")
-        po_amt = r6.number_input("PO Amt", value=None) # Blank
+        p_amt, po_no, po_amt = r4.number_input("Project Amt", value=None), r5.text_input("PO No"), r6.number_input("PO Amt", value=None)
         if st.form_submit_button("🚀 SYNC DATA"):
             if s_id and cl != "Select":
                 data = {"project_id": p_id, "site_id": s_id, "site_name": cl, "project_amt": p_amt or 0, "po_no": po_no, "po_amt": po_amt or 0}
-                supabase.table("site_data").insert(data).execute()
-                st.success("Synced Successfully")
-
+                supabase.table("site_data").insert(data).execute(); st.success("Synced")
     st.divider()
     res_s = supabase.table("site_data").select("*").execute()
-    if res_s.data:
-        st.dataframe(format_df_dates(pd.DataFrame(res_s.data).drop(columns=['id'], errors='ignore')), use_container_width=True)
+    if res_s.data: st.dataframe(format_df_dates(pd.DataFrame(res_s.data).drop(columns=['id'], errors='ignore')), use_container_width=True)
 
-# --- 8. FINANCE LEDGER (CONDITIONAL PROJECT ID & BLANK AMT) ---
+# --- 8. FINANCE LEDGER (STRICT CONDITIONAL LOGIC) ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
     trans_type = st.radio("Type", ["Payment Received", "Payment Paid"], horizontal=True)
-    
     c_res = supabase.table("client_master").select("client_name").execute()
     s_res = supabase.table("site_data").select("project_id").execute()
-    clients = [c['client_name'] for c in c_res.data] if c_res.data else []
-    projects = [s['project_id'] for s in s_res.data] if s_res.data else []
+    clients, projects = [c['client_name'] for c in c_res.data] if c_res.data else [], [s['project_id'] for s in s_res.data] if s_res.data else []
 
     if trans_type == "Payment Received":
         c_sel = st.selectbox("Received From", ["Select"] + clients + ["dilip mundada"])
         with st.form("rec_f", clear_on_submit=True):
-            r_dt = st.date_input("Date", datetime.now())
-            r_at = st.number_input("Received Amt", value=None) # Blank
-            
-            p_sel = None
-            if "indus tower" in c_sel.lower():
-                p_sel = st.selectbox("Project ID", ["Select ID"] + projects)
-            
-            if st.form_submit_button("Submit Received Payment"):
+            r_dt, r_at = st.date_input("Date", datetime.now()), st.number_input("Received Amt", value=None)
+            p_sel = st.selectbox("Project ID", ["Select ID"] + projects) if "indus tower" in c_sel.lower() else None
+            if st.form_submit_button("Submit"):
                 if c_sel != "Select":
                     amt = r_at or 0
                     supabase.table("finance").insert({"received_from": c_sel, "transaction_date": str(r_dt), "received_amt": amt, "paid_amount": 0}).execute()
-                    
                     if p_sel and p_sel != "Select ID":
                         curr = supabase.table("site_data").select("received_amt").eq("project_id", p_sel).execute()
                         if curr.data:
                             new_val = float(curr.data[0]['received_amt'] or 0) + amt
                             supabase.table("site_data").update({"received_amt": new_val}).eq("project_id", p_sel).execute()
-                    st.success(f"Payment recorded on {r_dt.strftime('%d-%b-%Y')}")
-
+                    st.success(f"Payment logged on {r_dt.strftime('%d-%b-%Y')}")
     st.divider()
     f_res = supabase.table("finance").select("*").order('transaction_date', desc=True).execute()
     if f_res.data:
         df_f = format_df_dates(pd.DataFrame(f_res.data).drop(columns=['id'], errors='ignore'))
         search = st.text_input("🔍 Search History")
-        if search:
-            df_f = df_f[df_f.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+        if search: df_f = df_f[df_f.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
         st.dataframe(df_f, use_container_width=True)
         st.download_button("📥 Export Ledger", data=to_excel(df_f), file_name=f"Ledger_{datetime.now().strftime('%d-%b-%Y')}.xlsx")
 
