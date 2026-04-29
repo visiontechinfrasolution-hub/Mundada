@@ -4,6 +4,15 @@ import pandas as pd
 from datetime import datetime
 import io
 
+# --- AUTO INSTALL OPENPYXL FOR EXCEL UPLOAD ---
+import subprocess
+import sys
+try:
+    import openpyxl
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "openpyxl"])
+    import openpyxl
+
 # --- 1. PAGE CONFIG & LAVISH CLEAN STYLE ---
 st.set_page_config(page_title="Visiontech Mundada", page_icon="💎", layout="wide")
 
@@ -110,7 +119,7 @@ elif page == "📝 Master Registration":
         t_res = supabase.table("team_master").select("*").execute()
         if t_res.data: st.dataframe(pd.DataFrame(t_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
 
-# --- 7. SITE DATA ENTRY ---
+# --- 7. SITE DATA ENTRY (FIXED JSON NaN ERROR) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
@@ -134,8 +143,13 @@ elif page == "🏗️ Site Data Entry":
             try:
                 df_up = pd.read_excel(uploaded_file)
                 if 'id' in df_up.columns: df_up = df_up.drop(columns=['id']) # Prevents ID conflict
-                df_up = df_up.where(pd.notnull(df_up), None) # Handle NaN values
-                records = df_up.to_dict(orient="records")
+                
+                # FIXED LOGIC: Replace nan with None for JSON compliance safely
+                records = []
+                for row in df_up.to_dict(orient="records"):
+                    clean_row = {k: (None if pd.isna(v) else v) for k, v in row.items()}
+                    records.append(clean_row)
+
                 supabase.table("site_data").insert(records).execute()
                 tc3.success("Bulk Data Uploaded!")
                 import time; time.sleep(1)
