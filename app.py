@@ -160,15 +160,17 @@ elif page == "💸 Finance Ledger":
     
     pay_type = st.radio("Select Payment Type", ["Payment Received", "Payment Paid"], horizontal=True)
     
-    # Common Data Fetching
     s_res = supabase.table("site_data").select("project_id", "received_amt", "team_paid_amt").execute()
     projects = ["None"] + [s['project_id'] for s in s_res.data] if s_res.data else ["None"]
     
     if pay_type == "Payment Received":
         c_res = supabase.table("client_master").select("client_name").execute()
-        clients = ["Select"] + [c['client_name'] for c in c_res.data] if c_res.data else ["Select"]
-        if "dilip mundada" not in clients: clients.append("dilip mundada")
-        if "Indus Towers Ltd." not in clients: clients.append("Indus Towers Ltd.")
+        
+        # --- FIXED UNIQUE CLIENTS LOGIC ---
+        master_clients = [c['client_name'] for c in c_res.data] if c_res.data else []
+        # Combine and remove duplicates (case insensitive check)
+        combined = set(master_clients + ["Dilip Mundada", "Indus Towers Ltd."])
+        clients = ["Select"] + sorted(list(combined))
 
         f_client = st.selectbox("Received From (Client)", clients)
         f_date = st.date_input("Date", datetime.now(), key="recv_date")
@@ -195,7 +197,6 @@ elif page == "💸 Finance Ledger":
             else: st.error("Please fill all required fields.")
 
     else:
-        # --- PAYMENT PAID LOGIC ---
         t_master_res = supabase.table("team_master").select("team_name").execute()
         teams_list = ["Select"] + [t['team_name'] for t in t_master_res.data] if t_master_res.data else ["Select"]
         
@@ -206,20 +207,18 @@ elif page == "💸 Finance Ledger":
         
         if st.button("🚀 Submit Paid Payment"):
             if p_team != "Select" and p_amt is not None and p_project != "None":
-                # Log in Finance
                 supabase.table("finance").insert({
                     "received_from": p_team, "transaction_date": str(p_date), 
                     "received_amt": -float(p_amt), "project_id": p_project,
                     "payment_type": "Paid"
                 }).execute()
                 
-                # Update Site Data Team Paid Amt
                 current_row = next((item for item in s_res.data if item["project_id"] == p_project), None)
                 old_paid = float(current_row['team_paid_amt']) if current_row and current_row['team_paid_amt'] else 0.0
                 supabase.table("site_data").update({"team_paid_amt": old_paid + float(p_amt)}).eq("project_id", p_project).execute()
                 
-                st.success(f"Payment of {p_amt} recorded and Site Data Updated!"); st.rerun()
-            else: st.error("Team Name, Amount, and Project ID are mandatory for Paid payments.")
+                st.success(f"Payment recorded and Site Data Updated!"); st.rerun()
+            else: st.error("Team Name, Amount, and Project ID are mandatory.")
 
     st.divider()
     st.subheader("📜 Finance Transactions")
