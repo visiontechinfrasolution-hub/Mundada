@@ -119,7 +119,7 @@ elif page == "📝 Master Registration":
         t_res = supabase.table("team_master").select("*").execute()
         if t_res.data: st.dataframe(pd.DataFrame(t_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
 
-# --- 7. SITE DATA ENTRY (FIXED JSON NaN ERROR) ---
+# --- 7. SITE DATA ENTRY (FIXED GENERATED COLUMN UPLOAD ERROR) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
@@ -142,7 +142,11 @@ elif page == "🏗️ Site Data Entry":
         if tc3.button("🚀 Upload Excel"):
             try:
                 df_up = pd.read_excel(uploaded_file)
-                if 'id' in df_up.columns: df_up = df_up.drop(columns=['id']) # Prevents ID conflict
+                
+                # FIXED: Drop generated/system columns so DB can calculate them itself
+                if 'id' in df_up.columns: df_up = df_up.drop(columns=['id']) 
+                if 'team_balance' in df_up.columns: df_up = df_up.drop(columns=['team_balance']) 
+                if 'created_at' in df_up.columns: df_up = df_up.drop(columns=['created_at']) 
                 
                 # FIXED LOGIC: Replace nan with None for JSON compliance safely
                 records = []
