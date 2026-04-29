@@ -91,7 +91,7 @@ elif page == "📝 Master Registration":
             if st.form_submit_button("Save Team"):
                 if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Saved")
 
-# --- 7. SITE DATA ENTRY (FIXED: REMOVED DUPLICATE TABLE SECTION) ---
+# --- 7. SITE DATA ENTRY (FIXED: SINGLE HEADER TABLE) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
@@ -107,9 +107,9 @@ elif page == "🏗️ Site Data Entry":
         st.rerun()
     if not df.empty: tc2.download_button("📥 Download", data=to_excel(df), file_name="Site_Data.xlsx")
     uploaded_file = tc3.file_uploader("📤 Bulk Upload", type=['xlsx'], label_visibility="collapsed")
-    search = tc4.text_input("🔍 Search Database...", placeholder="Project ID, Site ID, Team...")
+    search = tc4.text_input("🔍 Search Database...", placeholder="Search Site ID, Project ID...")
 
-    # FORM SECTION (STABLE)
+    # FORM SECTION
     er = st.session_state.edit_row_data
     is_editing = er is not None
     exp_label = f"📝 Editing Record: {er['project_id']}" if is_editing else "➕ Add New Site Entry"
@@ -137,21 +137,20 @@ elif page == "🏗️ Site Data Entry":
                 st.rerun()
 
     st.divider()
-    # MAIN CLEAN TABLE VIEW (ONE SINGLE TABLE WITH ALL COLUMNS)
+    # SINGLE CLEAN TABLE VIEW
     if not df.empty:
         if search: df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
         
         st.subheader("📋 Complete Site Database (Horizontal Scroll)")
         
-        # Display Logic: Action Button and Horizontal Data combined to avoid duplicate table
-        for idx, row in df.iterrows():
-            r = st.columns([0.6, 9.4])
-            if r[0].button("📝", key=f"btn_{row['id']}"):
-                st.session_state.edit_row_data = row.to_dict(); st.rerun()
-            
-            # This logic puts the edit button in front of a scrollable row/dataframe for that index
-            r[1].dataframe(pd.DataFrame([row]).drop(columns=['id']), use_container_width=True, hide_index=True)
-            st.divider()
+        # New Logic: Single select to trigger edit form
+        edit_sel = st.selectbox("🎯 Select Project ID to EDIT", ["None"] + df['project_id'].tolist())
+        if edit_sel != "None":
+            st.session_state.edit_row_data = df[df['project_id'] == edit_sel].iloc[0].to_dict()
+            st.rerun()
+
+        # Final Single Table with all data
+        st.dataframe(df.drop(columns=['id']), use_container_width=True)
 
 # --- 8. FINANCE LEDGER (STABLE) ---
 elif page == "💸 Finance Ledger":
@@ -164,7 +163,7 @@ elif page == "💸 Finance Ledger":
     with st.form("finance_form", clear_on_submit=True):
         c_sel = st.selectbox("Received From", ["Select"] + clients + ["dilip mundada"])
         r_dt, r_at = st.date_input("Date", datetime.now()), st.number_input("Received Amt", value=None)
-        p_sel = st.selectbox("Project ID (For Indus/Mundada)", ["None"] + projects)
+        p_sel = st.selectbox("Project ID", ["None"] + projects)
         if st.form_submit_button("Submit Transaction"):
             if c_sel != "Select":
                 supabase.table("finance").insert({"received_from": c_sel, "transaction_date": str(r_dt), "received_amt": r_at or 0}).execute()
