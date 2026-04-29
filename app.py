@@ -36,7 +36,7 @@ with st.sidebar:
     page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger"])
     st.info(f"User: Mayur Patil\nDate: 29-Apr-2026")
 
-# --- 5. DASHBOARD (STABLE BREAKDOWN & WCC) ---
+# --- 5. DASHBOARD (FIXED: ALL ITEMS RESTORED) ---
 if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     try:
@@ -64,7 +64,8 @@ if page == "🏠 Dashboard":
             c4_1, c4_2 = st.columns(2)
             m_amt = df_f[df_f['received_from'].str.contains("dilip mundada", case=False, na=False)]['received_amt'].astype(float).sum()
             i_amt = df_f[df_f['received_from'].str.contains("indus tower", case=False, na=False)]['received_amt'].astype(float).sum()
-            c4_1.metric("Recv. From Dilip Mundada", f"₹ {m_amt:,.0f}"); c4_2.metric("Recv. From Indus Towers", f"₹ {i_amt:,.0f}")
+            c4_1.metric("Recv. From Dilip Mundada", f"₹ {m_amt:,.0f}")
+            c4_2.metric("Recv. From Indus Towers", f"₹ {i_amt:,.0f}")
     except: st.info("Dashboard loading...")
 
 # --- 6. MASTER REGISTRATION ---
@@ -82,12 +83,11 @@ elif page == "📝 Master Registration":
             if st.form_submit_button("Save Team"):
                 if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Saved")
 
-# --- 7. SITE DATA ENTRY (FIXED SINGLE TABLE + UPLOAD) ---
+# --- 7. SITE DATA ENTRY (FIXED: SINGLE TABLE + UPLOAD) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
 
-    # Fetch Data
     res = supabase.table("site_data").select("*").execute()
     df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
 
