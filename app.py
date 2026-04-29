@@ -91,7 +91,7 @@ elif page == "📝 Master Registration":
             if st.form_submit_button("Save Team"):
                 if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Saved")
 
-# --- 7. SITE DATA ENTRY (FIXED TEAM NAMES DROPDOWN) ---
+# --- 7. SITE DATA ENTRY (FIXED DROPDOWNS WITH 'SELECT' OPTION) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
@@ -100,10 +100,9 @@ elif page == "🏗️ Site Data Entry":
     res = supabase.table("site_data").select("*").execute()
     df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     
-    # FETCHING TEAM NAMES FRESH EVERY TIME TO ENSURE DROPDOWN WORKS
+    # Fetch Team Names
     t_res = supabase.table("team_master").select("team_name").execute()
-    teams_list = [t['team_name'] for t in t_res.data] if t_res.data else []
-    if not teams_list: teams_list = ["No Teams Found"]
+    teams_list = ["Select"] + [t['team_name'] for t in t_res.data] if t_res.data else ["Select"]
 
     # ACTION BAR
     tc1, tc2, tc3, tc4 = st.columns([1, 1, 1.5, 2.5])
@@ -126,14 +125,16 @@ elif page == "🏗️ Site Data Entry":
             
             c4, c5, c6 = st.columns(3)
             cluster, p_amt = c4.text_input("Cluster", value=str(er['cluster']) if is_editing else ""), c5.number_input("Project Amount", value=float(er['project_amt']) if is_editing and er['project_amt'] else None)
-            st_list = ["Yet to Start", "WIP", "Completed"]
+            
+            # FIXED STATUS DROPDOWN WITH 'SELECT'
+            st_list = ["Select", "Yet to Start", "WIP", "Completed"]
             s_idx = st_list.index(er['site_status']) if is_editing and er['site_status'] in st_list else 0
             status = c6.selectbox("Status", st_list, index=s_idx)
             
             c7, c8, c9 = st.columns(3)
             po_n, po_a = c7.text_input("PO Number", value=str(er['po_no']) if is_editing else ""), c8.number_input("PO Amount", value=float(er['po_amt']) if is_editing and er['po_amt'] else None)
             
-            # DROPDOWN LOGIC FIXED
+            # FIXED TEAM NAME DROPDOWN WITH 'SELECT'
             t_idx = 0
             if is_editing and er['team_name'] in teams_list:
                 t_idx = teams_list.index(er['team_name'])
@@ -146,7 +147,11 @@ elif page == "🏗️ Site Data Entry":
             wcc_a, r_amt, w_desc = c13.number_input("WCC Amount", value=float(er['wcc_amt']) if is_editing and er['wcc_amt'] else None), c14.number_input("Received Amount", value=float(er['received_amt']) if is_editing and er['received_amt'] else None), c15.text_area("Work Description", value=str(er['work_description']) if is_editing else "")
 
             if st.form_submit_button("🚀 SAVE DATA"):
-                data = {"project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, "work_description": w_desc, "site_status": status, "project_amt": p_amt or 0, "po_no": po_n, "po_amt": po_a or 0, "team_name": t_name, "team_billing": t_bill or 0, "team_paid_amt": t_paid or 0, "wcc_no": wcc_n, "wcc_amt": wcc_a or 0, "received_amt": r_amt or 0}
+                # Prevents saving 'Select' as actual data
+                save_status = None if status == "Select" else status
+                save_team = None if t_name == "Select" else t_name
+                
+                data = {"project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, "work_description": w_desc, "site_status": save_status, "project_amt": p_amt or 0, "po_no": po_n, "po_amt": po_a or 0, "team_name": save_team, "team_billing": t_bill or 0, "team_paid_amt": t_paid or 0, "wcc_no": wcc_n, "wcc_amt": wcc_a or 0, "received_amt": r_amt or 0}
                 if is_editing: supabase.table("site_data").update(data).eq('id', er['id']).execute(); st.session_state.edit_row_data = None
                 else: supabase.table("site_data").insert(data).execute()
                 st.rerun()
