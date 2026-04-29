@@ -5,68 +5,89 @@ from datetime import datetime
 import io
 
 # --- 1. SUPERIOR PAGE CONFIG ---
-st.set_page_config(page_title="Visiontech Mundada | HD Portal", page_icon="💎", layout="wide")
+st.set_page_config(page_title="Visiontech Mundada", page_icon="💎", layout="wide")
 
-# --- 2. LAVISH HD UI STYLE (NO LOGIC CHANGE) ---
+# --- 2. CLEAN LAVISH UI STYLE ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap');
     
     html, body, [class*="st-"] { font-family: 'Plus Jakarta Sans', sans-serif; }
     
-    /* HD Background */
+    /* Clean White Background */
     .stApp {
-        background: radial-gradient(circle at top right, #394457 0%, #1e2633 100%);
-        color: #e6e9ef;
+        background-color: #ffffff;
+        color: #1e293b;
     }
 
-    /* Lavish Metric Cards */
+    /* Lavish Metric Cards with Vibrant Borders */
     div[data-testid="stMetric"] {
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 20px;
-        padding: 25px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        transition: transform 0.3s ease;
+        background: #ffffff;
+        border-radius: 15px;
+        padding: 20px;
+        border-left: 5px solid #0ea5e9;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
     }
     div[data-testid="stMetric"]:hover {
         transform: translateY(-5px);
-        border-color: #00d4ff;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
     }
-    [data-testid="stMetricValue"] > div { color: #00d4ff !important; font-weight: 800; }
+    
+    /* Metric Label and Value Colors */
+    [data-testid="stMetricLabel"] > div {
+        color: #64748b !important;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    [data-testid="stMetricValue"] > div {
+        color: #0f172a !important;
+        font-weight: 800;
+        font-size: 1.8rem !important;
+    }
 
-    /* Glassmorphism Forms */
+    /* Elegant Forms */
     div.stForm {
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(20px);
-        border-radius: 25px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 40px;
-        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+        background: #f8fafc;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+        padding: 30px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
 
-    /* Action Buttons - HD Gradient */
+    /* Lavish Action Buttons */
     .stButton>button {
-        background: linear-gradient(135deg, #007bff 0%, #00d4ff 100%);
-        color: white;
-        border-radius: 12px;
+        background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+        color: #ffffff !important;
+        border-radius: 10px;
         font-weight: 700;
         border: none;
-        padding: 12px;
-        box-shadow: 0 5px 15px rgba(0, 212, 255, 0.3);
-        transition: all 0.3s;
+        padding: 10px 25px;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
     }
     .stButton>button:hover {
-        transform: scale(1.02);
-        box-shadow: 0 8px 25px rgba(0, 212, 255, 0.5);
+        background: linear-gradient(135deg, #0ea5e9 0%, #2dd4bf 100%);
+        color: white !important;
     }
 
-    /* Sidebar Dark Theme */
-    [data-testid="stSidebar"] { background-color: #0d1117 !important; border-right: 1px solid rgba(255,255,255,0.1); }
+    /* Sidebar Styling */
+    [data-testid="stSidebar"] {
+        background-color: #f1f5f9 !important;
+    }
     
-    h1, h2, h3 { color: white !important; font-weight: 800; }
-    .stDataFrame { background: rgba(255, 255, 255, 0.05); border-radius: 15px; }
+    h1 {
+        background: linear-gradient(to right, #0f172a, #0ea5e9);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+    }
+
+    /* Table Styling */
+    .stDataFrame {
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -92,12 +113,12 @@ def format_df_dates(df):
 
 # --- 5. SIDEBAR ---
 with st.sidebar:
-    st.markdown("<h1 style='text-align: center; color: #00d4ff;'>MUNDADA</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; background: none; -webkit-text-fill-color: #0f172a;'>MUNDADA</h1>", unsafe_allow_html=True)
     st.divider()
     page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger"])
     st.info(f"User: Mayur Patil\nDate: {datetime.now().strftime('%d-%b-%Y')}")
 
-# --- 6. DASHBOARD (LAVISH 4-LINE LAYOUT) ---
+# --- 6. DASHBOARD (4-LINE CLEAN LAVISH) ---
 if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     try:
@@ -115,21 +136,26 @@ if page == "🏠 Dashboard":
             st.markdown("### 👥 Team Status")
             c2_1, c2_2, c2_3 = st.columns(3)
             t_bill, t_paid = df_s['team_billing'].sum(), df_s['team_paid_amt'].sum()
-            c2_1.metric("Total Team Billing", f"₹ {t_bill:,.0f}"); c2_2.metric("Total Team Paid", f"₹ {t_paid:,.0f}"); c2_3.metric("Total Team Balance", f"₹ {t_bill - t_paid:,.0f}")
+            c2_1.metric("Total Team Billing", f"₹ {t_bill:,.0f}")
+            c2_2.metric("Total Team Paid", f"₹ {t_paid:,.0f}")
+            c2_3.metric("Total Team Balance", f"₹ {t_bill - t_paid:,.0f}")
             
             st.divider()
             st.markdown("### 💳 Client Recovery")
             c3_1, c3_2, c3_3 = st.columns(3)
             wcc_tot, rec_tot = df_s['wcc_amt'].sum(), df_s['received_amt'].sum()
-            c3_1.metric("Total WCC Amt", f"₹ {wcc_tot:,.0f}"); c3_2.metric("Total Received Amt", f"₹ {rec_tot:,.0f}"); c3_3.metric("Total Balance", f"₹ {wcc_tot - rec_tot:,.0f}")
+            c3_1.metric("Total WCC Amt", f"₹ {wcc_tot:,.0f}")
+            c3_2.metric("Total Received Amt", f"₹ {rec_tot:,.0f}")
+            c3_3.metric("Total Balance", f"₹ {wcc_tot - rec_tot:,.0f}")
             
             st.divider()
             st.markdown("### 💰 Breakdown")
             c4_1, c4_2 = st.columns(2)
             mundada_total = df_f[df_f['received_from'].str.contains("dilip mundada", case=False, na=False)]['received_amt'].sum() if not df_f.empty else 0
             indus_total = df_f[df_f['received_from'].str.contains("indus tower", case=False, na=False)]['received_amt'].sum() if not df_f.empty else 0
-            c4_1.metric("Recv. From Dilip Mundada", f"₹ {mundada_total:,.0f}"); c4_2.metric("Recv. From Indus Towers", f"₹ {indus_total:,.0f}")
-        else: st.info("No data available.")
+            c4_1.metric("Recv. From Dilip Mundada", f"₹ {mundada_total:,.0f}")
+            c4_2.metric("Recv. From Indus Towers", f"₹ {indus_total:,.0f}")
+        else: st.info("No data registered yet.")
     except Exception as e: st.error(f"Error: {e}")
 
 # --- 7. MASTER REGISTRATION ---
@@ -142,18 +168,18 @@ elif page == "📝 Master Registration":
             if st.form_submit_button("Save Client"):
                 if cn: supabase.table("client_master").insert({"client_name": cn}).execute(); st.success("Saved")
         res_c = supabase.table("client_master").select("*").execute()
-        if res_c.data: st.dataframe(pd.DataFrame(res_c.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
+        if res_c.data: st.dataframe(format_df_dates(pd.DataFrame(res_c.data).drop(columns=['id'], errors='ignore')), use_container_width=True)
     with tab2:
         with st.form("team_form", clear_on_submit=True):
             tn, tl = st.text_input("Team Name"), st.text_input("Leader Name")
             if st.form_submit_button("Save Team"):
                 if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Saved")
         res_t = supabase.table("team_master").select("*").execute()
-        if res_t.data: st.dataframe(pd.DataFrame(res_t.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
+        if res_t.data: st.dataframe(format_df_dates(pd.DataFrame(res_t.data).drop(columns=['id'], errors='ignore')), use_container_width=True)
 
-# --- 8. SITE DATA ENTRY (100% COLUMNS & ACTION CONTROLS) ---
+# --- 8. SITE DATA ENTRY ---
 elif page == "🏗️ Site Data Entry":
-    st.markdown("<h1>🏗️ Site Registry & Actions</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>🏗️ Site Registry & Operations</h1>", unsafe_allow_html=True)
     if st.button("➕ Add New Site Entry (Full Form)"):
         st.session_state.show_form = not st.session_state.get('show_form', False)
 
@@ -173,7 +199,7 @@ elif page == "🏗️ Site Data Entry":
 
             if st.form_submit_button("🚀 Final Save"):
                 check = supabase.table("site_data").select("project_id").eq("project_id", p_id).execute()
-                if check.data: st.error("Remark: Duplicate ID!")
+                if check.data: st.error("Remark: Duplicate Project ID!")
                 elif p_id:
                     data = {"project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, "work_description": w_desc, "site_status": status, "project_amt": p_amt or 0, "po_no": po_n, "po_amt": po_a or 0, "team_name": t_name, "team_billing": t_bill or 0, "team_paid_amt": t_paid or 0, "wcc_no": wcc_n, "wcc_amt": wcc_a or 0, "received_amt": r_amt or 0}
                     supabase.table("site_data").insert(data).execute(); st.success("Added!"); st.rerun()
@@ -186,17 +212,17 @@ elif page == "🏗️ Site Data Entry":
     ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 2])
     with ctrl1: up = st.file_uploader("Upload", type=['xlsx'], label_visibility="collapsed")
     with ctrl2: 
-        if not df.empty: st.download_button("📥 Excel", data=to_excel(df), file_name="Site_Data.xlsx")
-    with ctrl3: search = st.text_input("🔍 Search History...")
+        if not df.empty: st.download_button("📥 Excel Export", data=to_excel(df), file_name="Site_Data.xlsx")
+    with ctrl3: search = st.text_input("🔍 Quick Search...")
 
     if not df.empty:
         if search: df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
         edited_df = st.data_editor(df, column_config={"id": None}, use_container_width=True, num_rows="dynamic", key="site_editor")
-        if st.button("💾 Save All Changes"):
+        if st.button("💾 Sync Table Changes"):
             for _, row in edited_df.iterrows():
                 if 'id' in row:
                     d = row.to_dict(); d.pop('team_balance', None); supabase.table("site_data").update(d).eq('id', row['id']).execute()
-            st.success("Synced!")
+            st.success("Changes Synced to Cloud!")
 
 # --- 9. FINANCE LEDGER ---
 elif page == "💸 Finance Ledger":
@@ -211,7 +237,7 @@ elif page == "💸 Finance Ledger":
         with st.form("rec_f", clear_on_submit=True):
             r_dt, r_at = st.date_input("Date", datetime.now()), st.number_input("Received Amt", value=None)
             p_sel = st.selectbox("Project ID", ["Select ID"] + projects) if "indus tower" in c_sel.lower() else None
-            if st.form_submit_button("Submit"):
+            if st.form_submit_button("Submit Transaction"):
                 if c_sel != "Select":
                     amt = r_at or 0
                     supabase.table("finance").insert({"received_from": c_sel, "transaction_date": str(r_dt), "received_amt": amt, "paid_amount": 0}).execute()
@@ -220,11 +246,11 @@ elif page == "💸 Finance Ledger":
                         if curr.data:
                             new_v = float(curr.data[0]['received_amt'] or 0) + amt
                             supabase.table("site_data").update({"received_amt": new_v}).eq("project_id", p_sel).execute()
-                    st.success("Payment logged.")
+                    st.success(f"Payment logged for {c_sel}")
     st.divider()
     f_res = supabase.table("finance").select("*").order('transaction_date', desc=True).execute()
     if f_res.data:
         df_f = format_df_dates(pd.DataFrame(f_res.data).drop(columns=['id'], errors='ignore'))
         st.dataframe(df_f, use_container_width=True)
 
-st.markdown("<div style='text-align: center; padding: 40px; color: rgba(255,255,255,0.3);'>Visiontech Automation © 2026</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; padding: 40px; color: #94a3b8;'>Visiontech Automation © 2026</div>", unsafe_allow_html=True)
