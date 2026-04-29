@@ -41,7 +41,6 @@ supabase = get_supabase()
 # --- 3. HELPER FUNCTION FOR EXCEL ---
 def to_excel(df):
     output = io.BytesIO()
-    # Engine 'xlsxwriter' use karne ke liye requirements.txt mein hona zaroori hai
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Sheet1')
     return output.getvalue()
@@ -82,7 +81,7 @@ if page == "🏠 Dashboard":
             c3_1.metric("Total WCC Amt", f"₹ {df['wcc_amt'].sum():,.0f}")
             c3_2.metric("Total Received Amt", f"₹ {df['received_amt'].sum():,.0f}")
             c3_3.metric("Total Balance", f"₹ {(df['wcc_amt'].sum() - df['received_amt'].sum()):,.0f}")
-        else: st.info("No data available yet.")
+        else: st.info("No data available.")
     except Exception as e: st.error(f"Dashboard Error: {e}")
 
 # --- 6. MASTER REGISTRATION ---
@@ -147,9 +146,9 @@ elif page == "🏗️ Site Data Entry":
             if s_id and client != "Select":
                 data = {"project_id": p_id, "site_id": s_id, "site_name": client, "cluster": cluster, "work_description": work_desc, "project_amt": p_amt, "po_no": po_no, "po_amt": po_amt, "site_status": status, "team_name": team, "team_billing": t_bill, "team_paid_amt": t_paid, "wcc_no": wcc_n, "wcc_amt": wcc_a, "received_amt": rec_a}
                 supabase.table("site_data").insert(data).execute()
-                st.success("Site Data Recorded!")
+                st.success("Site Recorded!")
             else: st.error("Site ID and Client mandatory.")
-
+    
     st.divider()
     st.subheader("📂 Registered Site Records")
     s_data = supabase.table("site_data").select("*").execute()
@@ -172,12 +171,15 @@ elif page == "💸 Finance Ledger":
             f_data = {"received_from": fr, "paid_to": to, "transaction_date": str(dt), "received_amt": ra, "paid_amount": pa}
             supabase.table("finance").insert(f_data).execute()
             st.success("Transaction Logged!")
+            
     st.divider()
+    st.subheader("💰 Transaction Ledger")
     f_res = supabase.table("finance").select("*").execute()
     if f_res.data:
         df_f = pd.DataFrame(f_res.data).drop(columns=['id'], errors='ignore')
         search_f = st.text_input("🔍 Search Transaction History")
-        if search_f: df_f = df_f[df_f.astype(str).apply(lambda x: x.str.contains(search_f, case=False)).any(axis=1)]
+        if search_f:
+            df_f = df_f[df_f.astype(str).apply(lambda x: x.str.contains(search_f, case=False)).any(axis=1)]
         st.dataframe(df_f, use_container_width=True)
         st.download_button("📥 Download Ledger Excel", data=to_excel(df_f), file_name="Finance_Ledger.xlsx")
 
