@@ -36,7 +36,7 @@ with st.sidebar:
     page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger"])
     st.info(f"User: Mayur Patil\nDate: 29-Apr-2026")
 
-# --- 5. DASHBOARD (FIXED: BREAKDOWN & WCC RESTORED) ---
+# --- 5. DASHBOARD (STABLE) ---
 if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     try:
@@ -91,7 +91,7 @@ elif page == "📝 Master Registration":
             if st.form_submit_button("Save Team"):
                 if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Saved")
 
-# --- 7. SITE DATA ENTRY (FIXED: ALL COLUMNS + UPLOAD) ---
+# --- 7. SITE DATA ENTRY (FIXED: REMOVED DUPLICATE TABLE SECTION) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
@@ -106,15 +106,13 @@ elif page == "🏗️ Site Data Entry":
         st.session_state.edit_row_data = None
         st.rerun()
     if not df.empty: tc2.download_button("📥 Download", data=to_excel(df), file_name="Site_Data.xlsx")
-    
-    # Bulk Upload Restored
     uploaded_file = tc3.file_uploader("📤 Bulk Upload", type=['xlsx'], label_visibility="collapsed")
-    search = tc4.text_input("🔍 Search Database...", placeholder="Search Site ID, Project ID...")
+    search = tc4.text_input("🔍 Search Database...", placeholder="Project ID, Site ID, Team...")
 
-    # FORM SECTION
+    # FORM SECTION (STABLE)
     er = st.session_state.edit_row_data
     is_editing = er is not None
-    exp_label = f"📝 Editing: {er['project_id']}" if is_editing else "➕ Add New Site Entry"
+    exp_label = f"📝 Editing Record: {er['project_id']}" if is_editing else "➕ Add New Site Entry"
     
     with st.expander(exp_label, expanded=is_editing):
         with st.form("site_full_form", clear_on_submit=not is_editing):
@@ -139,24 +137,23 @@ elif page == "🏗️ Site Data Entry":
                 st.rerun()
 
     st.divider()
-    # SINGLE CLEAN TABLE WITH ALL COLUMNS
+    # MAIN CLEAN TABLE VIEW (ONE SINGLE TABLE WITH ALL COLUMNS)
     if not df.empty:
         if search: df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
-        st.subheader("📋 Detailed Database")
         
-        # Display Loop for Edit Action
+        st.subheader("📋 Complete Site Database (Horizontal Scroll)")
+        
+        # Display Logic: Action Button and Horizontal Data combined to avoid duplicate table
         for idx, row in df.iterrows():
-            r = st.columns([0.6, 2, 2, 2, 2, 2])
+            r = st.columns([0.6, 9.4])
             if r[0].button("📝", key=f"btn_{row['id']}"):
                 st.session_state.edit_row_data = row.to_dict(); st.rerun()
-            r[1].write(f"**ID:** {row['project_id']}"); r[2].write(f"**Site:** {row['site_id']}"); r[3].write(row['site_name']); r[4].write(row['team_name']); r[5].write(f"Status: {row['site_status']}")
-        
-        st.divider()
-        st.markdown("### 📊 Complete Raw Data View (Horizontal Scroll)")
-        # This shows every single column from Supabase
-        st.dataframe(df.drop(columns=['id']), use_container_width=True)
+            
+            # This logic puts the edit button in front of a scrollable row/dataframe for that index
+            r[1].dataframe(pd.DataFrame([row]).drop(columns=['id']), use_container_width=True, hide_index=True)
+            st.divider()
 
-# --- 8. FINANCE LEDGER ---
+# --- 8. FINANCE LEDGER (STABLE) ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
     c_res = supabase.table("client_master").select("client_name").execute()
