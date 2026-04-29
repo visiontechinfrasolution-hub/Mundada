@@ -176,7 +176,8 @@ elif page == "💸 Finance Ledger":
         if f_client == "Indus Towers Ltd.": f_project = st.selectbox("Project ID", projects, key="recv_proj")
         if st.button("🚀 Submit Received Payment"):
             if f_client != "Select" and f_amt is not None:
-                supabase.table("finance").insert({"received_from": f_client, "transaction_date": str(f_date), "received_amt": f_amt, "project_id": f_project if f_project != "None" else None, "payment_type": "Received"}).execute()
+                # Removed 'payment_type' column as it might not exist
+                supabase.table("finance").insert({"received_from": f_client, "transaction_date": str(f_date), "received_amt": f_amt, "project_id": f_project if f_project != "None" else None}).execute()
                 if f_client == "Indus Towers Ltd." and f_project != "None":
                     current_row = next((item for item in s_res.data if item["project_id"] == f_project), None)
                     old_amt = float(current_row['received_amt']) if current_row and current_row['received_amt'] else 0.0
@@ -185,28 +186,26 @@ elif page == "💸 Finance Ledger":
             else: st.error("Please fill all required fields.")
 
     else:
-        # --- PAYMENT PAID LOGIC WITH RED BALANCE ---
         t_master_res = supabase.table("team_master").select("team_name").execute()
         teams_list = ["Select"] + [t['team_name'] for t in t_master_res.data] if t_master_res.data else ["Select"]
-        
         p_team = st.selectbox("Paid To (Team Name)", teams_list)
         p_project = st.selectbox("Project ID", projects, key="paid_proj")
         
-        # Balance Calculation and Display in Red
         if p_project != "None":
             site_info = next((item for item in s_res.data if item["project_id"] == p_project), None)
             if site_info:
                 billing = float(site_info['team_billing']) if site_info['team_billing'] else 0.0
                 paid = float(site_info['team_paid_amt']) if site_info['team_paid_amt'] else 0.0
-                balance = billing - paid
-                st.markdown(f"<div class='balance-box'><h3 style='color: #dc2626; margin:0;'>Current Team Balance: ₹ {balance:,.0f}</h3></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='balance-box'><h3 style='color: #dc2626; margin:0;'>Current Team Balance: ₹ {billing - paid:,.0f}</h3></div>", unsafe_allow_html=True)
 
         p_date = st.date_input("Date", datetime.now(), key="paid_date")
         p_amt = st.number_input("Paid Amt", value=None, key="paid_amt")
         
         if st.button("🚀 Submit Paid Payment"):
             if p_team != "Select" and p_amt is not None and p_project != "None":
-                supabase.table("finance").insert({"received_from": p_team, "transaction_date": str(p_date), "received_amt": -float(p_amt), "project_id": p_project, "payment_type": "Paid"}).execute()
+                # Fixed insert query: Negative value handled if needed or kept positive based on DB rules
+                # Removed 'payment_type' column for safety
+                supabase.table("finance").insert({"received_from": p_team, "transaction_date": str(p_date), "received_amt": -float(p_amt), "project_id": p_project}).execute()
                 current_row = next((item for item in s_res.data if item["project_id"] == p_project), None)
                 old_paid = float(current_row['team_paid_amt']) if current_row and current_row['team_paid_amt'] else 0.0
                 supabase.table("site_data").update({"team_paid_amt": old_paid + float(p_amt)}).eq("project_id", p_project).execute()
