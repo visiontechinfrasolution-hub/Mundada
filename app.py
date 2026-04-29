@@ -174,14 +174,18 @@ elif page == "💸 Finance Ledger":
         f_amt = st.number_input("Received Amt", value=None, key="recv_amt")
         f_project = "None"
         if f_client == "Indus Towers Ltd.": f_project = st.selectbox("Project ID", projects, key="recv_proj")
+        
         if st.button("🚀 Submit Received Payment"):
             if f_client != "Select" and f_amt is not None:
-                supabase.table("finance").insert({"received_from": f_client, "transaction_date": str(f_date), "received_amt": float(f_amt), "project_id": f_project if f_project != "None" else None}).execute()
-                if f_client == "Indus Towers Ltd." and f_project != "None":
-                    current_row = next((item for item in s_res.data if item["project_id"] == f_project), None)
-                    old_amt = float(current_row['received_amt']) if current_row and current_row['received_amt'] else 0.0
-                    supabase.table("site_data").update({"received_amt": old_amt + float(f_amt)}).eq("project_id", f_project).execute()
-                st.success("Finance Ledger Updated!"); st.rerun()
+                try:
+                    supabase.table("finance").insert({"received_from": f_client, "transaction_date": str(f_date), "received_amt": float(f_amt), "project_id": f_project if f_project != "None" else None}).execute()
+                    if f_client == "Indus Towers Ltd." and f_project != "None":
+                        current_row = next((item for item in s_res.data if item["project_id"] == f_project), None)
+                        old_amt = float(current_row['received_amt']) if current_row and current_row['received_amt'] else 0.0
+                        supabase.table("site_data").update({"received_amt": old_amt + float(f_amt)}).eq("project_id", f_project).execute()
+                    st.success("Finance Ledger Updated!"); st.rerun()
+                except Exception as e:
+                    st.error(f"Error updating Finance: {e}")
             else: st.error("Please fill all required fields.")
 
     else:
@@ -202,12 +206,15 @@ elif page == "💸 Finance Ledger":
         
         if st.button("🚀 Submit Paid Payment"):
             if p_team != "Select" and p_amt is not None and p_project != "None":
-                # FIXED: Amount is kept positive for DB safety, sign logic handled in Dashboard if needed
-                supabase.table("finance").insert({"received_from": p_team, "transaction_date": str(p_date), "received_amt": float(p_amt), "project_id": p_project}).execute()
-                current_row = next((item for item in s_res.data if item["project_id"] == p_project), None)
-                old_paid = float(current_row['team_paid_amt']) if current_row and current_row['team_paid_amt'] else 0.0
-                supabase.table("site_data").update({"team_paid_amt": old_paid + float(p_amt)}).eq("project_id", p_project).execute()
-                st.success(f"Payment recorded and Site Data Updated!"); st.rerun()
+                try:
+                    # Logic: In Finance, Paid is recorded with same key but can be differentiated by minus sign if allowed, or we keep it positive for the ledger.
+                    supabase.table("finance").insert({"received_from": p_team, "transaction_date": str(p_date), "received_amt": float(p_amt), "project_id": p_project}).execute()
+                    current_row = next((item for item in s_res.data if item["project_id"] == p_project), None)
+                    old_paid = float(current_row['team_paid_amt']) if current_row and current_row['team_paid_amt'] else 0.0
+                    supabase.table("site_data").update({"team_paid_amt": old_paid + float(p_amt)}).eq("project_id", p_project).execute()
+                    st.success(f"Payment recorded and Site Data Updated!"); st.rerun()
+                except Exception as e:
+                    st.error(f"Error updating Finance: {e}")
             else: st.error("Team Name, Amount, and Project ID are mandatory.")
 
     st.divider()
