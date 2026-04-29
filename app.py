@@ -30,7 +30,7 @@ def to_excel(df):
         df.to_excel(writer, index=False, sheet_name='Sheet1')
     return output.getvalue()
 
-# --- 4. SIDEBAR NAVIGATION (NEW PAGE ADDED) ---
+# --- 4. SIDEBAR NAVIGATION ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #0f172a;'>MUNDADA</h1>", unsafe_allow_html=True)
     st.divider()
@@ -110,7 +110,7 @@ elif page == "📝 Master Registration":
         t_res = supabase.table("team_master").select("*").execute()
         if t_res.data: st.dataframe(pd.DataFrame(t_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
 
-# --- 7. SITE DATA ENTRY ---
+# --- 7. SITE DATA ENTRY (FIXED BULK UPLOAD) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
@@ -126,7 +126,23 @@ elif page == "🏗️ Site Data Entry":
             if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
         st.rerun()
     if not df.empty: tc2.download_button("📥 Download", data=to_excel(df), file_name="Site_Data.xlsx")
+    
+    # Bulk Upload Logic
     uploaded_file = tc3.file_uploader("📤 Bulk Upload", type=['xlsx'], label_visibility="collapsed")
+    if uploaded_file is not None:
+        if tc3.button("🚀 Upload Excel"):
+            try:
+                df_up = pd.read_excel(uploaded_file)
+                if 'id' in df_up.columns: df_up = df_up.drop(columns=['id']) # Prevents ID conflict
+                df_up = df_up.where(pd.notnull(df_up), None) # Handle NaN values
+                records = df_up.to_dict(orient="records")
+                supabase.table("site_data").insert(records).execute()
+                tc3.success("Bulk Data Uploaded!")
+                import time; time.sleep(1)
+                st.rerun()
+            except Exception as e:
+                tc3.error(f"Error: {e}")
+
     search = tc4.text_input("🔍 Search Database...", placeholder="Search Site ID, Project ID...")
     
     er = st.session_state.edit_row_data
@@ -266,25 +282,23 @@ elif page == "💸 Finance Ledger":
                     cols_to_show = ['received_from', 'transaction_date', 'paid_amount', 'created_at']
                     st.dataframe(df_paid[[c for c in cols_to_show if c in df_paid.columns]], use_container_width=True)
 
-# --- 9. NEW TEAM LEDGER PAGE ---
+# --- 9. TEAM LEDGER ---
 elif page == "👥 Team Ledger":
     st.markdown("<h1>👥 Team Wise Billing & Balance</h1>", unsafe_allow_html=True)
     
-    # Fetch Data
     s_res = supabase.table("site_data").select("team_name", "team_billing", "team_paid_amt").execute()
     
     if s_res.data:
         df = pd.DataFrame(s_res.data)
         
-        # Data Cleaning for Calculation
+        df['team_name'] = df['team_name'].fillna("Unassigned").replace("", "Unassigned")
         df['team_billing'] = pd.to_numeric(df['team_billing']).fillna(0)
         df['team_paid_amt'] = pd.to_numeric(df['team_paid_amt']).fillna(0)
         
-        # Group by Team Name
         team_df = df.groupby('team_name', as_index=False).sum()
         team_df['Balance Amount (₹)'] = team_df['team_billing'] - team_df['team_paid_amt']
+        team_df = team_df[team_df['team_name'] != 'Select']
         
-        # Rename for aesthetic display
         team_df = team_df.rename(columns={
             'team_name': 'Team Name',
             'team_billing': 'Total Billing (₹)',
