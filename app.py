@@ -4,15 +4,6 @@ import pandas as pd
 from datetime import datetime
 import io
 
-# --- AUTO INSTALL OPENPYXL FOR EXCEL UPLOAD ---
-import subprocess
-import sys
-try:
-    import openpyxl
-except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "openpyxl"])
-    import openpyxl
-
 # --- 1. PAGE CONFIG & LAVISH CLEAN STYLE ---
 st.set_page_config(page_title="Visiontech Mundada", page_icon="💎", layout="wide")
 
