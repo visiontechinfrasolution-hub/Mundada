@@ -76,49 +76,37 @@ if page == "🏠 Dashboard":
             c4_2.metric("Total Recv. From Indus Towers", f"₹ {i_amt:,.0f}")
     except: st.info("Dashboard loading...")
 
-# --- 6. MASTER REGISTRATION (FIXED: ADDED TABLES BELOW) ---
+# --- 6. MASTER REGISTRATION ---
 elif page == "📝 Master Registration":
     st.markdown("<h1>📋 Master Registry</h1>", unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["👥 Clients", "🛠️ Teams"])
-    
     with tab1:
         with st.form("cl_reg"):
             cn = st.text_input("Client Name")
             if st.form_submit_button("Save Client"):
                 if cn: supabase.table("client_master").insert({"client_name": cn}).execute(); st.success("Saved"); st.rerun()
-        
         st.divider()
         st.subheader("👥 Registered Clients")
         c_res = supabase.table("client_master").select("*").execute()
-        if c_res.data:
-            st.dataframe(pd.DataFrame(c_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
-            
+        if c_res.data: st.dataframe(pd.DataFrame(c_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
     with tab2:
         with st.form("tm_reg"):
             tn, tl = st.text_input("Team Name"), st.text_input("Leader Name")
             if st.form_submit_button("Save Team"):
                 if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Saved"); st.rerun()
-        
         st.divider()
         st.subheader("🛠️ Registered Teams")
         t_res = supabase.table("team_master").select("*").execute()
-        if t_res.data:
-            st.dataframe(pd.DataFrame(t_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
+        if t_res.data: st.dataframe(pd.DataFrame(t_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
 
 # --- 7. SITE DATA ENTRY ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
-
-    # Fetch Site Data
     res = supabase.table("site_data").select("*").execute()
     df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
-    
-    # Fetch Team Names
     t_res = supabase.table("team_master").select("team_name").execute()
     teams_list = ["Select"] + [t['team_name'] for t in t_res.data] if t_res.data else ["Select"]
-
-    # ACTION BAR
     tc1, tc2, tc3, tc4 = st.columns([1, 1, 1.5, 2.5])
     if tc1.button("➕ New Site"): 
         st.session_state.edit_row_data = None
@@ -126,70 +114,23 @@ elif page == "🏗️ Site Data Entry":
     if not df.empty: tc2.download_button("📥 Download", data=to_excel(df), file_name="Site_Data.xlsx")
     uploaded_file = tc3.file_uploader("📤 Bulk Upload", type=['xlsx'], label_visibility="collapsed")
     search = tc4.text_input("🔍 Search Database...", placeholder="Search Site ID, Project ID...")
-
-    # FORM SECTION
     er = st.session_state.edit_row_data
     is_editing = er is not None
     exp_label = f"📝 Editing Record: {er['project_id']}" if is_editing else "➕ Add New Site Entry"
-    
     with st.expander(exp_label, expanded=is_editing):
         with st.form("site_full_form", clear_on_submit=not is_editing):
             c1, c2, c3 = st.columns(3)
             p_id, s_id, s_nm = c1.text_input("Project ID*", value=str(er['project_id']) if is_editing else ""), c2.text_input("Site ID", value=str(er['site_id']) if is_editing else ""), c3.text_input("Site Name", value=str(er['site_name']) if is_editing else "")
-            
             c4, c5, c6 = st.columns(3)
             cluster, p_amt = c4.text_input("Cluster", value=str(er['cluster']) if is_editing else ""), c5.number_input("Project Amount", value=float(er['project_amt']) if is_editing and er['project_amt'] else None)
             st_list = ["Select", "Yet to Start", "WIP", "Completed"]
             s_idx = st_list.index(er['site_status']) if is_editing and er['site_status'] in st_list else 0
             status = c6.selectbox("Status", st_list, index=s_idx)
-            
             c7, c8, c9 = st.columns(3)
             po_n, po_a = c7.text_input("PO Number", value=str(er['po_no']) if is_editing else ""), c8.number_input("PO Amount", value=float(er['po_amt']) if is_editing and er['po_amt'] else None)
-            
-            t_idx = 0
-            if is_editing and er['team_name'] in teams_list:
-                t_idx = teams_list.index(er['team_name'])
+            t_idx = teams_list.index(er['team_name']) if is_editing and er['team_name'] in teams_list else 0
             t_name = c9.selectbox("Team Name", teams_list, index=t_idx)
-
             c10, c11, c12 = st.columns(3)
             t_bill, t_paid, wcc_n = c10.number_input("Team Billing", value=float(er['team_billing']) if is_editing and er['team_billing'] else None), c11.number_input("Team Paid", value=float(er['team_paid_amt']) if is_editing and er['team_paid_amt'] else None), c12.text_input("WCC Number", value=str(er['wcc_no']) if is_editing else "")
-            
             c13, c14, c15 = st.columns(3)
-            wcc_a, r_amt, w_desc = c13.number_input("WCC Amount", value=float(er['wcc_amt']) if is_editing and er['wcc_amt'] else None), c14.number_input("Received Amount", value=float(er['received_amt']) if is_editing and er['received_amt'] else None), c15.text_area("Work Description", value=str(er['work_description']) if is_editing else "")
-
-            if st.form_submit_button("🚀 SAVE DATA"):
-                save_status = None if status == "Select" else status
-                save_team = None if t_name == "Select" else t_name
-                
-                data = {"project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, "work_description": w_desc, "site_status": save_status, "project_amt": p_amt or 0, "po_no": po_n, "po_amt": po_a or 0, "team_name": save_team, "team_billing": t_bill or 0, "team_paid_amt": t_paid or 0, "wcc_no": wcc_n, "wcc_amt": wcc_a or 0, "received_amt": r_amt or 0}
-                if is_editing: supabase.table("site_data").update(data).eq('id', er['id']).execute(); st.session_state.edit_row_data = None
-                else: supabase.table("site_data").insert(data).execute()
-                st.rerun()
-
-    st.divider()
-    if not df.empty:
-        if search: df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
-        st.subheader("📋 Complete Site Database (Horizontal Scroll)")
-        edit_sel = st.selectbox("🎯 Select Project ID to EDIT", ["None"] + df['project_id'].tolist())
-        if edit_sel != "None":
-            st.session_state.edit_row_data = df[df['project_id'] == edit_sel].iloc[0].to_dict()
-            st.rerun()
-        st.dataframe(df.drop(columns=['id']), use_container_width=True)
-
-# --- 8. FINANCE LEDGER ---
-elif page == "💸 Finance Ledger":
-    st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
-    c_res = supabase.table("client_master").select("client_name").execute()
-    s_res = supabase.table("site_data").select("project_id").execute()
-    clients = [c['client_name'] for c in c_res.data] if c_res.data else []
-    projects = [s['project_id'] for s in s_res.data] if s_res.data else []
-
-    with st.form("finance_form", clear_on_submit=True):
-        c_sel = st.selectbox("Received From", ["Select"] + clients + ["dilip mundada"])
-        r_dt, r_at = st.date_input("Date", datetime.now()), st.number_input("Received Amt", value=None)
-        p_sel = st.selectbox("Project ID", ["None"] + projects)
-        if st.form_submit_button("Submit Transaction"):
-            if c_sel != "Select":
-                supabase.table("finance").insert({"received_from": c_sel, "transaction_date": str(r_dt), "received_amt": r_at or 0}).execute()
-                st.success("Payment Logged!")
-                st.rerun()
+            wcc_a, r_amt, w_desc = c13.number_input("WCC Amount", value=float(er['wcc_amt']) if is_editing and er['wcc_amt'] else None
