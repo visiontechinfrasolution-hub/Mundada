@@ -154,7 +154,7 @@ elif page == "🏗️ Site Data Entry":
             st.rerun()
         st.dataframe(df.drop(columns=['id']), use_container_width=True)
 
-# --- 8. FINANCE LEDGER (STABLE SINGLE PAGE) ---
+# --- 8. FINANCE LEDGER (FIXED CONDITIONAL LOGIC) ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
     
@@ -165,40 +165,41 @@ elif page == "💸 Finance Ledger":
         s_res = supabase.table("site_data").select("project_id", "received_amt").execute()
         
         clients = ["Select"] + [c['client_name'] for c in c_res.data] if c_res.data else ["Select"]
-        if "dilip mundada" not in [c.lower() for c in clients]: clients.append("dilip mundada")
+        if "dilip mundada" not in clients: clients.append("dilip mundada")
         if "Indus Towers Ltd." not in clients: clients.append("Indus Towers Ltd.")
         
         projects = ["None"] + [s['project_id'] for s in s_res.data] if s_res.data else ["None"]
 
-        with st.form("received_finance_form", clear_on_submit=True):
-            f_client = st.selectbox("Received From (Client)", clients)
-            f_date = st.date_input("Date", datetime.now())
-            f_amt = st.number_input("Received Amt", value=None)
-            
-            # Project ID check for Indus
-            f_project = "None"
-            if f_client == "Indus Towers Ltd.":
-                f_project = st.selectbox("Project ID", projects)
-            
-            if st.form_submit_button("Submit Received Payment"):
-                if f_client != "Select" and f_amt is not None:
-                    # Log in Finance
-                    supabase.table("finance").insert({
-                        "received_from": f_client, 
-                        "transaction_date": str(f_date), 
-                        "received_amt": f_amt,
-                        "project_id": f_project if f_project != "None" else None
-                    }).execute()
-                    
-                    # Update Site Data ONLY for Indus Towers Ltd.
-                    if f_client == "Indus Towers Ltd." and f_project != "None":
-                        current_row = next((item for item in s_res.data if item["project_id"] == f_project), None)
-                        old_amt = float(current_row['received_amt']) if current_row and current_row['received_amt'] else 0.0
-                        supabase.table("site_data").update({"received_amt": old_amt + float(f_amt)}).eq("project_id", f_project).execute()
-                        st.success(f"Site Data Updated for {f_project}!")
-                    
-                    st.success("Finance Ledger Updated!")
-                    st.rerun()
+        # Form fields OUTSIDE st.form for reactive visibility
+        f_client = st.selectbox("Received From (Client)", clients)
+        f_date = st.date_input("Date", datetime.now())
+        f_amt = st.number_input("Received Amt", value=None)
+        
+        f_project = "None"
+        if f_client == "Indus Towers Ltd.":
+            f_project = st.selectbox("Project ID", projects)
+
+        if st.button("🚀 Submit Received Payment"):
+            if f_client != "Select" and f_amt is not None:
+                # Log in Finance
+                supabase.table("finance").insert({
+                    "received_from": f_client, 
+                    "transaction_date": str(f_date), 
+                    "received_amt": f_amt,
+                    "project_id": f_project if f_project != "None" else None
+                }).execute()
+                
+                # Update Site Data ONLY for Indus Towers Ltd.
+                if f_client == "Indus Towers Ltd." and f_project != "None":
+                    current_row = next((item for item in s_res.data if item["project_id"] == f_project), None)
+                    old_amt = float(current_row['received_amt']) if current_row and current_row['received_amt'] else 0.0
+                    supabase.table("site_data").update({"received_amt": old_amt + float(f_amt)}).eq("project_id", f_project).execute()
+                    st.success(f"Site Data Updated for {f_project}!")
+                
+                st.success("Finance Ledger Updated!")
+                st.rerun()
+            else:
+                st.error("Please fill all required fields.")
     else:
         st.info("Payment Paid module logic can be added here.")
 
