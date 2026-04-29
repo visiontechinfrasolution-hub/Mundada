@@ -54,46 +54,42 @@ with st.sidebar:
 if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     
-    res = supabase.table("site_data").select("po_amt, received_amt, team_billing, team_paid_amt, wcc_amt").execute()
-    
-    if res.data:
-        df = pd.DataFrame(res.data)
+    try:
+        res = supabase.table("site_data").select("po_amt, received_amt, team_billing, team_paid_amt, wcc_amt").execute()
         
-        # Line 1 Calculations
-        site_count = len(df)
-        total_po = df['po_amt'].sum()
-        
-        # Line 2 Calculations (Team)
-        t_bill = df['team_billing'].sum()
-        t_paid = df['team_paid_amt'].sum()
-        t_bal = t_bill - t_paid
-        
-        # Line 3 Calculations (Client/WCC)
-        t_wcc = df['wcc_amt'].sum()
-        t_rec = df['received_amt'].sum()
-        t_bal_client = t_wcc - t_rec
+        if res.data:
+            df = pd.DataFrame(res.data)
+            site_count = len(df)
+            total_po = df['po_amt'].sum()
+            t_bill = df['team_billing'].sum()
+            t_paid = df['team_paid_amt'].sum()
+            t_bal = t_bill - t_paid
+            t_wcc = df['wcc_amt'].sum()
+            t_rec = df['received_amt'].sum()
+            t_bal_client = t_wcc - t_rec
 
-        # --- DISPLAY ---
-        st.markdown("### 📍 Project Summary")
-        c1_1, c1_2 = st.columns(2)
-        c1_1.metric("Total Site Count", f"{site_count}")
-        c1_2.metric("Total PO Amt", f"₹ {total_po:,.0f}")
-        
-        st.divider()
-        st.markdown("### 👥 Team & Vendor Status")
-        c2_1, c2_2, c2_3 = st.columns(3)
-        c2_1.metric("Total Team Billing", f"₹ {t_bill:,.0f}")
-        c2_2.metric("Total Team Paid", f"₹ {t_paid:,.0f}")
-        c2_3.metric("Total Team Balance", f"₹ {t_bal:,.0f}", delta=f"Pending", delta_color="inverse")
-        
-        st.divider()
-        st.markdown("### 💳 Client Recovery (WCC)")
-        c3_1, c3_2, c3_3 = st.columns(3)
-        c3_1.metric("Total WCC Amt", f"₹ {t_wcc:,.0f}")
-        c3_2.metric("Total Received Amt", f"₹ {t_rec:,.0f}")
-        c3_3.metric("Total Balance", f"₹ {t_bal_client:,.0f}", delta=f"Receivable")
-    else:
-        st.info("No data available. Please add sites in the registry.")
+            st.markdown("### 📍 Project Summary")
+            c1_1, c1_2 = st.columns(2)
+            c1_1.metric("Total Site Count", f"{site_count}")
+            c1_2.metric("Total PO Amt", f"₹ {total_po:,.0f}")
+            
+            st.divider()
+            st.markdown("### 👥 Team & Vendor Status")
+            c2_1, c2_2, c2_3 = st.columns(3)
+            c2_1.metric("Total Team Billing", f"₹ {t_bill:,.0f}")
+            c2_2.metric("Total Team Paid", f"₹ {t_paid:,.0f}")
+            c2_3.metric("Total Team Balance", f"₹ {t_bal:,.0f}", delta=f"Pending", delta_color="inverse")
+            
+            st.divider()
+            st.markdown("### 💳 Client Recovery (WCC)")
+            c3_1, c3_2, c3_3 = st.columns(3)
+            c3_1.metric("Total WCC Amt", f"₹ {t_wcc:,.0f}")
+            c3_2.metric("Total Received Amt", f"₹ {t_rec:,.0f}")
+            c3_3.metric("Total Balance", f"₹ {t_bal_client:,.0f}", delta=f"Receivable")
+        else:
+            st.info("No data available. Please add sites in the registry.")
+    except Exception as e:
+        st.error(f"Dashboard Error: Make sure your tables exist in Supabase. {e}")
 
 # --- 5. MASTER REGISTRATION ---
 elif page == "📝 Master Registration":
@@ -106,8 +102,12 @@ elif page == "📝 Master Registration":
             cp = st.text_input("Contact Person")
             if st.form_submit_button("Register Client"):
                 if cn:
-                    supabase.table("client_master").insert({"client_name": cn, "contact_person": cp}).execute()
-                    st.success("Client Added!")
+                    try:
+                        # Safely insert with essential columns
+                        supabase.table("client_master").insert({"client_name": cn, "contact_person": cp}).execute()
+                        st.success("Client Added!")
+                    except Exception as e:
+                        st.error(f"Insert Failed: Check if 'client_master' table has RLS disabled or columns match. Error: {e}")
 
     with t2:
         with st.form("team_form", clear_on_submit=True):
@@ -115,17 +115,23 @@ elif page == "📝 Master Registration":
             tl = st.text_input("Team Leader")
             if st.form_submit_button("Register Team"):
                 if tn:
-                    supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute()
-                    st.success("Team Added!")
+                    try:
+                        supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute()
+                        st.success("Team Added!")
+                    except Exception as e:
+                        st.error(f"Insert Failed: Check 'team_master' table columns. Error: {e}")
 
 # --- 6. SITE DATA ENTRY ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Registration</h1>", unsafe_allow_html=True)
     
-    c_res = supabase.table("client_master").select("client_name").execute()
-    t_res = supabase.table("team_master").select("team_name").execute()
-    client_list = [c['client_name'] for c in c_res.data] if c_res.data else []
-    team_list = [t['team_name'] for t in t_res.data] if t_res.data else []
+    try:
+        c_res = supabase.table("client_master").select("client_name").execute()
+        t_res = supabase.table("team_master").select("team_name").execute()
+        client_list = [c['client_name'] for c in c_res.data] if c_res.data else []
+        team_list = [t['team_name'] for t in t_res.data] if t_res.data else []
+    except:
+        client_list, team_list = [], []
 
     with st.form("site_entry_form", clear_on_submit=True):
         st.subheader("📍 Basic Details")
@@ -160,15 +166,18 @@ elif page == "🏗️ Site Data Entry":
 
         if st.form_submit_button("🚀 SYNC TO CLOUD"):
             if s_id and client != "Select":
-                data = {
-                    "project_id": p_id, "site_id": s_id, "site_name": client, "cluster": cluster,
-                    "work_description": work_desc, "project_amt": p_amt, "po_no": po_no,
-                    "po_amt": po_amt, "site_status": status, "team_name": team,
-                    "team_billing": t_bill, "team_paid_amt": t_paid, "wcc_no": wcc_n,
-                    "wcc_amt": wcc_a, "received_amt": rec_a
-                }
-                supabase.table("site_data").insert(data).execute()
-                st.success("Site Recorded!")
+                try:
+                    data = {
+                        "project_id": p_id, "site_id": s_id, "site_name": client, "cluster": cluster,
+                        "work_description": work_desc, "project_amt": p_amt, "po_no": po_no,
+                        "po_amt": po_amt, "site_status": status, "team_name": team,
+                        "team_billing": t_bill, "team_paid_amt": t_paid, "wcc_no": wcc_n,
+                        "wcc_amt": wcc_a, "received_amt": rec_a
+                    }
+                    supabase.table("site_data").insert(data).execute()
+                    st.success("Site Recorded!")
+                except Exception as e:
+                    st.error(f"Sync Failed: {e}")
             else: st.error("Site ID and Client mandatory.")
 
 # --- 7. FINANCE LEDGER ---
@@ -183,8 +192,11 @@ elif page == "💸 Finance Ledger":
         ra = f4.number_input("Received Amt", min_value=0.0)
         pa = f5.number_input("Paid Amt", min_value=0.0)
         if st.form_submit_button("Record Transaction"):
-            f_data = {"received_from": fr, "paid_to": to, "transaction_date": str(dt), "received_amt": ra, "paid_amount": pa}
-            supabase.table("finance").insert(f_data).execute()
-            st.success("Logged!")
+            try:
+                f_data = {"received_from": fr, "paid_to": to, "transaction_date": str(dt), "received_amt": ra, "paid_amount": pa}
+                supabase.table("finance").insert(f_data).execute()
+                st.success("Logged!")
+            except Exception as e:
+                st.error(f"Logging Failed: {e}")
 
 st.markdown("<div class='elegant-footer'>Visiontech Automation © 2026</div>", unsafe_allow_html=True)
