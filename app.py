@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 import io
 
-# --- 1. PAGE CONFIG & LAVISH STYLE ---
+# --- 1. PAGE CONFIG & LAVISH STYLE (NO CHANGE) ---
 st.set_page_config(page_title="Visiontech Mundada", page_icon="💎", layout="wide")
 
 st.markdown("""
@@ -39,7 +39,7 @@ with st.sidebar:
     page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger"])
     st.info(f"User: Mayur Patil\nDate: {datetime.now().strftime('%d-%b-%Y')}")
 
-# --- 5. DASHBOARD (FIXED BREAKDOWN) ---
+# --- 5. DASHBOARD (STABLE BREAKDOWN & WCC) ---
 if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     try:
@@ -50,31 +50,41 @@ if page == "🏠 Dashboard":
             df_s = pd.DataFrame(s_res.data)
             df_f = pd.DataFrame(f_res.data) if f_res.data else pd.DataFrame(columns=['received_from', 'received_amt'])
             
+            # Line 1: Summary
             st.markdown("### 📍 Summary")
             c1, c2 = st.columns(2)
             c1.metric("Total Site Count", len(df_s))
             c2.metric("Total PO Amt", f"₹ {df_s['po_amt'].sum():,.0f}")
             
             st.divider()
-            st.markdown("### 👥 Team & Client Status")
-            c3_1, c3_2, c3_3 = st.columns(3)
+            # Line 2: Team Financials
+            st.markdown("### 👥 Team Status")
+            c2_1, c2_2, c2_3 = st.columns(3)
             t_bill, t_paid = df_s['team_billing'].sum(), df_s['team_paid_amt'].sum()
-            c3_1.metric("Total Team Billing", f"₹ {t_bill:,.0f}")
-            c3_2.metric("Total Team Paid", f"₹ {t_paid:,.0f}")
-            c3_3.metric("Total Received (WCC)", f"₹ {df_s['received_amt'].sum():,.0f}")
+            c2_1.metric("Total Team Billing", f"₹ {t_bill:,.0f}")
+            c2_2.metric("Total Team Paid", f"₹ {t_paid:,.0f}")
+            c2_3.metric("Total Team Balance", f"₹ {t_bill - t_paid:,.0f}")
             
             st.divider()
-            st.markdown("### 💰 Recovery Breakdown")
-            c4_1, c4_2 = st.columns(2)
+            # Line 3: WCC Data (Restored)
+            st.markdown("### 💳 WCC & Client Recovery")
+            c3_1, c3_2, c3_3 = st.columns(3)
+            wcc_tot = df_s['wcc_amt'].sum()
+            rec_tot = df_s['received_amt'].sum()
+            c3_1.metric("Total WCC Amt", f"₹ {wcc_tot:,.0f}")
+            c3_2.metric("Total Received Amt", f"₹ {rec_tot:,.0f}")
+            c3_3.metric("WCC Pending Balance", f"₹ {wcc_tot - rec_tot:,.0f}")
             
-            # Specific logic for Dilip Mundada and Indus
+            st.divider()
+            # Line 4: Breakdown (Restored)
+            st.markdown("### 💰 Collection Breakdown")
+            c4_1, c4_2 = st.columns(2)
             mundada_amt = df_f[df_f['received_from'].str.contains("dilip mundada", case=False, na=False)]['received_amt'].astype(float).sum()
             indus_amt = df_f[df_f['received_from'].str.contains("indus tower", case=False, na=False)]['received_amt'].astype(float).sum()
-            
             c4_1.metric("Recv. From Dilip Mundada", f"₹ {mundada_amt:,.0f}")
             c4_2.metric("Recv. From Indus Towers", f"₹ {indus_amt:,.0f}")
-    except Exception as e:
-        st.error(f"Dashboard Error: {e}")
+        else: st.info("Welcome! Start by adding data to see metrics.")
+    except Exception as e: st.error(f"Dashboard Error: {e}")
 
 # --- 6. MASTER REGISTRATION ---
 elif page == "📝 Master Registration":
@@ -91,7 +101,7 @@ elif page == "📝 Master Registration":
             if st.form_submit_button("Save Team"):
                 if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Saved")
 
-# --- 7. SITE DATA ENTRY (SELECTION TO EDIT) ---
+# --- 7. SITE DATA ENTRY ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Registry</h1>", unsafe_allow_html=True)
     res = supabase.table("site_data").select("*").execute()
@@ -99,37 +109,37 @@ elif page == "🏗️ Site Data Entry":
 
     selected_row = None
     if not df.empty:
-        st.info("💡 Table mein kisi bhi line par click karein use EDIT karne ke liye.")
+        st.info("💡 Edit karne ke liye table mein line par click karein.")
         selection = st.dataframe(df, use_container_width=True, on_select="rerun", selection_mode="single", column_config={"id": None})
         if selection and selection.selection.rows:
             selected_row = df.iloc[selection.selection.rows[0]]
 
-    with st.expander("📝 Add / Edit Site Form", expanded=(selected_row is not None)):
-        with st.form("site_full_form", clear_on_submit=(selected_row is None)):
-            r1c1, r1c2, r1c3 = st.columns(3)
-            p_id = r1c1.text_input("Project ID*", value=selected_row['project_id'] if selected_row is not None else "")
-            s_id = r1c2.text_input("Site ID", value=selected_row['site_id'] if selected_row is not None else "")
-            s_nm = r1c3.text_input("Site Name", value=selected_row['site_name'] if selected_row is not None else "")
+    with st.expander("📝 Form (Add/Edit Site)", expanded=(selected_row is not None)):
+        with st.form("site_main_form", clear_on_submit=(selected_row is None)):
+            r1, r2, r3 = st.columns(3)
+            p_id = r1.text_input("Project ID*", value=selected_row['project_id'] if selected_row is not None else "")
+            s_id = r2.text_input("Site ID", value=selected_row['site_id'] if selected_row is not None else "")
+            s_nm = r3.text_input("Site Name", value=selected_row['site_name'] if selected_row is not None else "")
             
-            r2c1, r2c2, r2c3 = st.columns(3)
-            cluster = r2c1.text_input("Cluster", value=selected_row['cluster'] if selected_row is not None else "")
-            p_amt = r2c2.number_input("Project Amt", value=float(selected_row['project_amt']) if selected_row is not None else None)
+            r4, r5, r6 = st.columns(3)
+            cluster = r4.text_input("Cluster", value=selected_row['cluster'] if selected_row is not None else "")
+            p_amt = r5.number_input("Project Amt", value=float(selected_row['project_amt']) if selected_row is not None else None)
             st_list = ["Planning", "WIP", "WCC Done", "Closed"]
-            status = r2c3.selectbox("Status", st_list, index=st_list.index(selected_row['site_status']) if selected_row is not None else 0)
+            status = r6.selectbox("Status", st_list, index=st_list.index(selected_row['site_status']) if selected_row is not None else 0)
 
-            r3c1, r3c2, r3c3 = st.columns(3)
-            po_n, po_a = r3c1.text_input("PO No", value=selected_row['po_no'] if selected_row is not None else ""), r3c2.number_input("PO Amt", value=float(selected_row['po_amt']) if selected_row is not None else None)
-            t_name = r3c3.text_input("Team Name", value=selected_row['team_name'] if selected_row is not None else "")
+            r7, r8, r9 = st.columns(3)
+            po_n, po_a = r7.text_input("PO No", value=selected_row['po_no'] if selected_row is not None else ""), r8.number_input("PO Amt", value=float(selected_row['po_amt']) if selected_row is not None else None)
+            t_name = r9.text_input("Team Name", value=selected_row['team_name'] if selected_row is not None else "")
 
-            r4c1, r4c2, r4c3 = st.columns(3)
-            t_bill, t_paid = r4c1.number_input("Team Billing", value=float(selected_row['team_billing']) if selected_row is not None else None), r4c2.number_input("Team Paid", value=float(selected_row['team_paid_amt']) if selected_row is not None else None)
-            wcc_n = r4c3.text_input("WCC No", value=selected_row['wcc_no'] if selected_row is not None else "")
+            r10, r11, r12 = st.columns(3)
+            t_bill, t_paid = r10.number_input("Team Billing", value=float(selected_row['team_billing']) if selected_row is not None else None), r11.number_input("Team Paid", value=float(selected_row['team_paid_amt']) if selected_row is not None else None)
+            wcc_n = r12.text_input("WCC No", value=selected_row['wcc_no'] if selected_row is not None else "")
 
-            r5c1, r5c2, r5c3 = st.columns(3)
-            wcc_a, r_amt = r5c1.number_input("WCC Amt", value=float(selected_row['wcc_amt']) if selected_row is not None else None), r5c2.number_input("Recv Amt", value=float(selected_row['received_amt']) if selected_row is not None else None)
-            w_desc = r5c3.text_area("Work Description", value=selected_row['work_description'] if selected_row is not None else "")
+            r13, r14, r15 = st.columns(3)
+            wcc_a, r_amt = r13.number_input("WCC Amt", value=float(selected_row['wcc_amt']) if selected_row is not None else None), r14.number_input("Recv Amt", value=float(selected_row['received_amt']) if selected_row is not None else None)
+            w_desc = r15.text_area("Work Description", value=selected_row['work_description'] if selected_row is not None else "")
 
-            if st.form_submit_button("💾 Sync Data"):
+            if st.form_submit_button("💾 Sync to Cloud"):
                 data = {"project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, "work_description": w_desc, "site_status": status, "project_amt": p_amt or 0, "po_no": po_n, "po_amt": po_a or 0, "team_name": t_name, "team_billing": t_bill or 0, "team_paid_amt": t_paid or 0, "wcc_no": wcc_n, "wcc_amt": wcc_a or 0, "received_amt": r_amt or 0}
                 if selected_row is not None:
                     supabase.table("site_data").update(data).eq('id', selected_row['id']).execute(); st.success("Updated!")
@@ -137,7 +147,7 @@ elif page == "🏗️ Site Data Entry":
                     supabase.table("site_data").insert(data).execute(); st.success("Saved!")
                 st.rerun()
 
-# --- 8. FINANCE LEDGER ---
+# --- 8. FINANCE LEDGER (STABLE LOGIC) ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
-    # Wahi stable finance logic jo pehle tha...
+    # Finance logic remains untouched...
