@@ -25,8 +25,6 @@ st.markdown("""
     div.stForm { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(15px); border-radius: 25px; border: 1px solid #ffffff; padding: 40px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08); }
     .stButton>button { background: linear-gradient(135deg, #0984e3 0%, #00cec9 100%); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: 700; width: 100%; box-shadow: 0 4px 15px rgba(9, 132, 227, 0.3); }
     .elegant-footer { text-align: center; padding: 40px; color: #636e72; font-size: 14px; }
-    /* Table Styling */
-    .stDataFrame { border-radius: 15px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
     </style>
     """, unsafe_allow_html=True)
 
@@ -40,9 +38,10 @@ def get_supabase():
 
 supabase = get_supabase()
 
-# --- 3. HELPER FUNCTIONS ---
+# --- 3. HELPER FUNCTION FOR EXCEL ---
 def to_excel(df):
     output = io.BytesIO()
+    # Engine 'xlsxwriter' use karne ke liye requirements.txt mein hona zaroori hai
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Sheet1')
     return output.getvalue()
@@ -58,7 +57,7 @@ with st.sidebar:
         "💸 Finance Ledger"
     ])
     st.divider()
-    st.info(f"User: Mayur Patil\n\nSystem Time: {datetime.now().strftime('%H:%M')}")
+    st.info(f"User: Mayur Patil")
 
 # --- 5. DASHBOARD ---
 if page == "🏠 Dashboard":
@@ -83,10 +82,10 @@ if page == "🏠 Dashboard":
             c3_1.metric("Total WCC Amt", f"₹ {df['wcc_amt'].sum():,.0f}")
             c3_2.metric("Total Received Amt", f"₹ {df['received_amt'].sum():,.0f}")
             c3_3.metric("Total Balance", f"₹ {(df['wcc_amt'].sum() - df['received_amt'].sum()):,.0f}")
-        else: st.info("No data available.")
+        else: st.info("No data available yet.")
     except Exception as e: st.error(f"Dashboard Error: {e}")
 
-# --- 6. MASTER REGISTRATION (With Tables & Excel) ---
+# --- 6. MASTER REGISTRATION ---
 elif page == "📝 Master Registration":
     st.markdown("<h1>📋 Master Registry</h1>", unsafe_allow_html=True)
     t1, t2 = st.tabs(["👥 Client Master", "🛠️ Team Master"])
@@ -97,14 +96,12 @@ elif page == "📝 Master Registration":
             cp = st.text_input("Contact Person")
             if st.form_submit_button("Register Client"):
                 if cn: supabase.table("client_master").insert({"client_name": cn, "contact_person": cp}).execute()
-                st.success("Client Added!")
-        
+                st.success("Client Registered!")
         st.divider()
-        st.subheader("Existing Clients")
         c_data = supabase.table("client_master").select("*").execute()
         if c_data.data:
             df_c = pd.DataFrame(c_data.data).drop(columns=['id'], errors='ignore')
-            search_c = st.text_input("🔍 Search Client", key="search_c")
+            search_c = st.text_input("🔍 Search Client Records")
             if search_c: df_c = df_c[df_c.astype(str).apply(lambda x: x.str.contains(search_c, case=False)).any(axis=1)]
             st.dataframe(df_c, use_container_width=True)
             st.download_button("📥 Download Excel", data=to_excel(df_c), file_name="Client_Master.xlsx")
@@ -115,14 +112,12 @@ elif page == "📝 Master Registration":
             tl = st.text_input("Team Leader")
             if st.form_submit_button("Register Team"):
                 if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute()
-                st.success("Team Added!")
-        
+                st.success("Team Registered!")
         st.divider()
-        st.subheader("Existing Teams")
         t_data = supabase.table("team_master").select("*").execute()
         if t_data.data:
             df_t = pd.DataFrame(t_data.data).drop(columns=['id'], errors='ignore')
-            search_t = st.text_input("🔍 Search Team", key="search_t")
+            search_t = st.text_input("🔍 Search Team Records")
             if search_t: df_t = df_t[df_t.astype(str).apply(lambda x: x.str.contains(search_t, case=False)).any(axis=1)]
             st.dataframe(df_t, use_container_width=True)
             st.download_button("📥 Download Excel", data=to_excel(df_t), file_name="Team_Master.xlsx")
@@ -152,7 +147,7 @@ elif page == "🏗️ Site Data Entry":
             if s_id and client != "Select":
                 data = {"project_id": p_id, "site_id": s_id, "site_name": client, "cluster": cluster, "work_description": work_desc, "project_amt": p_amt, "po_no": po_no, "po_amt": po_amt, "site_status": status, "team_name": team, "team_billing": t_bill, "team_paid_amt": t_paid, "wcc_no": wcc_n, "wcc_amt": wcc_a, "received_amt": rec_a}
                 supabase.table("site_data").insert(data).execute()
-                st.success("Site Recorded!")
+                st.success("Site Data Recorded!")
             else: st.error("Site ID and Client mandatory.")
 
     st.divider()
@@ -160,10 +155,10 @@ elif page == "🏗️ Site Data Entry":
     s_data = supabase.table("site_data").select("*").execute()
     if s_data.data:
         df_s = pd.DataFrame(s_data.data).drop(columns=['id'], errors='ignore')
-        search_s = st.text_input("🔍 Search Site Record")
+        search_s = st.text_input("🔍 Search Site Database")
         if search_s: df_s = df_s[df_s.astype(str).apply(lambda x: x.str.contains(search_s, case=False)).any(axis=1)]
         st.dataframe(df_s, use_container_width=True)
-        st.download_button("📥 Download All Site Data", data=to_excel(df_s), file_name="Site_Database.xlsx")
+        st.download_button("📥 Download Database Excel", data=to_excel(df_s), file_name="Site_Database.xlsx")
 
 # --- 8. FINANCE LEDGER ---
 elif page == "💸 Finance Ledger":
@@ -176,14 +171,12 @@ elif page == "💸 Finance Ledger":
         if st.form_submit_button("Record Transaction"):
             f_data = {"received_from": fr, "paid_to": to, "transaction_date": str(dt), "received_amt": ra, "paid_amount": pa}
             supabase.table("finance").insert(f_data).execute()
-            st.success("Logged!")
-
+            st.success("Transaction Logged!")
     st.divider()
-    st.subheader("💰 Transaction Ledger")
     f_res = supabase.table("finance").select("*").execute()
     if f_res.data:
         df_f = pd.DataFrame(f_res.data).drop(columns=['id'], errors='ignore')
-        search_f = st.text_input("🔍 Search Transactions")
+        search_f = st.text_input("🔍 Search Transaction History")
         if search_f: df_f = df_f[df_f.astype(str).apply(lambda x: x.str.contains(search_f, case=False)).any(axis=1)]
         st.dataframe(df_f, use_container_width=True)
         st.download_button("📥 Download Ledger Excel", data=to_excel(df_f), file_name="Finance_Ledger.xlsx")
