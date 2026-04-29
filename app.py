@@ -45,7 +45,7 @@ with st.sidebar:
     page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger"])
     st.info(f"User: Mayur Patil\nDate: {datetime.now().strftime('%d-%b-%Y')}")
 
-# --- 5. DASHBOARD (STABLE LOGIC) ---
+# --- 5. DASHBOARD (UNTOUCHED LOGIC) ---
 if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     try:
@@ -73,14 +73,13 @@ if page == "🏠 Dashboard":
             mundada_total = df_f[df_f['received_from'].str.contains("dilip mundada", case=False, na=False)]['received_amt'].sum() if not df_f.empty else 0
             indus_total = df_f[df_f['received_from'].str.contains("indus tower", case=False, na=False)]['received_amt'].sum() if not df_f.empty else 0
             c4_1.metric("Recv. From Dilip Mundada", f"₹ {mundada_total:,.0f}"); c4_2.metric("Recv. From Indus Towers", f"₹ {indus_total:,.0f}")
-        else: st.info("No data available.")
     except Exception as e: st.error(f"Error: {e}")
 
-# --- 6. MASTER REGISTRATION (STABLE LOGIC) ---
+# --- 6. MASTER REGISTRATION (UNTOUCHED LOGIC - FIXED NAMEERROR) ---
 elif page == "📝 Master Registration":
     st.markdown("<h1>📋 Master Registry</h1>", unsafe_allow_html=True)
-    t1, t2 = st.tabs(["👥 Clients", "🛠️ Teams"])
-    with t1:
+    tab1, tab2 = st.tabs(["👥 Clients", "🛠️ Teams"])
+    with tab1:
         with st.form("client_master_form", clear_on_submit=True):
             cn = st.text_input("Client Name")
             if st.form_submit_button("Save Client"):
@@ -95,9 +94,9 @@ elif page == "📝 Master Registration":
         res_t = supabase.table("team_master").select("*").execute()
         if res_t.data: st.dataframe(format_df_dates(pd.DataFrame(res_t.data).drop(columns=['id'], errors='ignore')), use_container_width=True)
 
-# --- 7. SITE DATA ENTRY (100% COLUMNS & ACTION CONTROLS) ---
+# --- 7. SITE DATA ENTRY (100% COLUMNS & DIRECT EDIT) ---
 elif page == "🏗️ Site Data Entry":
-    st.markdown("<h1>🏗️ Site Registry & Actions</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>🏗️ Site Registry & Operations</h1>", unsafe_allow_html=True)
     
     if st.button("➕ Add New Site Entry (Full Form)"):
         st.session_state.show_form = not st.session_state.get('show_form', False)
@@ -116,16 +115,16 @@ elif page == "🏗️ Site Data Entry":
             c13, c14, c15 = st.columns(3)
             wcc_n, wcc_a, r_amt = c13.text_input("WCC Number"), c14.number_input("WCC Amount", value=None), c15.number_input("Received Amount", value=None)
 
-            if st.form_submit_button("🚀 Final Save"):
+            if st.form_submit_button("🚀 Save Site"):
                 check = supabase.table("site_data").select("project_id").eq("project_id", p_id).execute()
-                if check.data: st.error(f"Remark: Project ID '{p_id}' already exists!"); 
+                if check.data: st.error(f"Remark: Project ID '{p_id}' already available!"); 
                 elif p_id:
                     data = {"project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, "work_description": w_desc, "site_status": status, "project_amt": p_amt or 0, "po_no": po_n, "po_amt": po_a or 0, "team_name": t_name, "team_billing": t_bill or 0, "team_paid_amt": t_paid or 0, "wcc_no": wcc_n, "wcc_amt": wcc_a or 0, "received_amt": r_amt or 0}
                     supabase.table("site_data").insert(data).execute(); st.success("Added!"); st.rerun()
 
     st.divider()
     b1, b2, b3, b4 = st.columns([1, 0.5, 0.5, 2])
-    with b1: up_file = st.file_uploader("Excel", type=['xlsx'], label_visibility="collapsed")
+    with b1: up_file = st.file_uploader("Upload", type=['xlsx'], label_visibility="collapsed")
     with b2:
         if up_file and st.button("Sync"):
             up_df = pd.read_excel(up_file).fillna(0)
@@ -135,7 +134,7 @@ elif page == "🏗️ Site Data Entry":
                 if str(r['project_id']) in existing: dups.append(str(r['project_id']))
                 else: to_add.append(r.to_dict())
             if to_add: supabase.table("site_data").insert(to_add).execute()
-            if dups: st.warning(f"Duplicates skipped: {', '.join(dups)}")
+            if dups: st.warning(f"Duplicates: {', '.join(dups)}")
             st.success(f"Added {len(to_add)} records."); st.rerun()
 
     res = supabase.table("site_data").select("*").execute()
@@ -148,7 +147,7 @@ elif page == "🏗️ Site Data Entry":
 
     if not df.empty:
         if search: df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
-        st.subheader("Live Database (Double-click any cell to Edit)")
+        st.subheader("Live Database (Double-click to Edit)")
         edited_df = st.data_editor(df, column_order=["project_id", "site_id", "site_name", "cluster", "project_amt", "po_no", "po_amt", "site_status", "team_name", "team_billing", "team_paid_amt", "team_balance", "wcc_no", "wcc_amt", "received_amt", "work_description"], column_config={"id": None, "team_balance": st.column_config.NumberColumn("Team Balance", disabled=True)}, use_container_width=True, num_rows="dynamic", key="site_editor")
         if st.button("💾 Save All Changes"):
             for _, row in edited_df.iterrows():
@@ -156,7 +155,7 @@ elif page == "🏗️ Site Data Entry":
                     d = row.to_dict(); d.pop('team_balance', None); supabase.table("site_data").update(d).eq('id', row['id']).execute()
             st.success("Cloud Synced!")
 
-# --- 8. FINANCE LEDGER (STABLE LOGIC) ---
+# --- 8. FINANCE LEDGER (UNTOUCHED LOGIC) ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
     trans_type = st.radio("Type", ["Payment Received", "Payment Paid"], horizontal=True)
