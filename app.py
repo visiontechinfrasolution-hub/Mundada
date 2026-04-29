@@ -91,14 +91,18 @@ elif page == "📝 Master Registration":
             if st.form_submit_button("Save Team"):
                 if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Saved")
 
-# --- 7. SITE DATA ENTRY (FIXED: SINGLE HEADER TABLE) ---
+# --- 7. SITE DATA ENTRY (FIXED DROPDOWNS) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
 
-    # Fetch Data
+    # Fetch Site Data
     res = supabase.table("site_data").select("*").execute()
     df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
+    
+    # Fetch Dynamic Team Names from team_master
+    t_res = supabase.table("team_master").select("team_name").execute()
+    teams_list = [t['team_name'] for t in t_res.data] if t_res.data else []
 
     # ACTION BAR
     tc1, tc2, tc3, tc4 = st.columns([1, 1, 1.5, 2.5])
@@ -118,15 +122,23 @@ elif page == "🏗️ Site Data Entry":
         with st.form("site_full_form", clear_on_submit=not is_editing):
             c1, c2, c3 = st.columns(3)
             p_id, s_id, s_nm = c1.text_input("Project ID*", value=str(er['project_id']) if is_editing else ""), c2.text_input("Site ID", value=str(er['site_id']) if is_editing else ""), c3.text_input("Site Name", value=str(er['site_name']) if is_editing else "")
+            
             c4, c5, c6 = st.columns(3)
             cluster, p_amt = c4.text_input("Cluster", value=str(er['cluster']) if is_editing else ""), c5.number_input("Project Amount", value=float(er['project_amt']) if is_editing and er['project_amt'] else None)
-            st_list = ["Planning", "WIP", "WCC Done", "Closed"]
+            # FIXED STATUS DROPDOWN
+            st_list = ["Yet to Start", "WIP", "Completed"]
             s_idx = st_list.index(er['site_status']) if is_editing and er['site_status'] in st_list else 0
             status = c6.selectbox("Status", st_list, index=s_idx)
+            
             c7, c8, c9 = st.columns(3)
-            po_n, po_a, t_name = c7.text_input("PO Number", value=str(er['po_no']) if is_editing else ""), c8.number_input("PO Amount", value=float(er['po_amt']) if is_editing and er['po_amt'] else None), c9.text_input("Team Name", value=str(er['team_name']) if is_editing else "")
+            po_n, po_a = c7.text_input("PO Number", value=str(er['po_no']) if is_editing else ""), c8.number_input("PO Amount", value=float(er['po_amt']) if is_editing and er['po_amt'] else None)
+            # FIXED TEAM NAME DROPDOWN
+            t_idx = teams_list.index(er['team_name']) if is_editing and er['team_name'] in teams_list else 0
+            t_name = c9.selectbox("Team Name", teams_list, index=t_idx)
+
             c10, c11, c12 = st.columns(3)
             t_bill, t_paid, wcc_n = c10.number_input("Team Billing", value=float(er['team_billing']) if is_editing and er['team_billing'] else None), c11.number_input("Team Paid", value=float(er['team_paid_amt']) if is_editing and er['team_paid_amt'] else None), c12.text_input("WCC Number", value=str(er['wcc_no']) if is_editing else "")
+            
             c13, c14, c15 = st.columns(3)
             wcc_a, r_amt, w_desc = c13.number_input("WCC Amount", value=float(er['wcc_amt']) if is_editing and er['wcc_amt'] else None), c14.number_input("Received Amount", value=float(er['received_amt']) if is_editing and er['received_amt'] else None), c15.text_area("Work Description", value=str(er['work_description']) if is_editing else "")
 
@@ -137,19 +149,13 @@ elif page == "🏗️ Site Data Entry":
                 st.rerun()
 
     st.divider()
-    # SINGLE CLEAN TABLE VIEW
     if not df.empty:
         if search: df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
-        
         st.subheader("📋 Complete Site Database (Horizontal Scroll)")
-        
-        # New Logic: Single select to trigger edit form
         edit_sel = st.selectbox("🎯 Select Project ID to EDIT", ["None"] + df['project_id'].tolist())
         if edit_sel != "None":
             st.session_state.edit_row_data = df[df['project_id'] == edit_sel].iloc[0].to_dict()
             st.rerun()
-
-        # Final Single Table with all data
         st.dataframe(df.drop(columns=['id']), use_container_width=True)
 
 # --- 8. FINANCE LEDGER (STABLE) ---
