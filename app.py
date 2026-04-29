@@ -22,7 +22,7 @@ st.markdown("""
     [data-testid="stSidebar"] { background-color: #ffffff !important; border-right: 1px solid #e1e4e8; }
     div[data-testid="stMetric"] { background: #ffffff; border: 1px solid #e1e4e8; border-radius: 20px; padding: 25px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); }
     [data-testid="stMetricValue"] > div { color: #0984e3 !important; font-weight: 800; }
-    div.stForm { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(15px); border-radius: 25px; border: 1px solid #ffffff; padding: 40px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08); }
+    div.stForm { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(15px); border-radius: 25px; border: 1px solid #ffffff; padding: 40px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08); margin-top: 20px; }
     .stButton>button { background: linear-gradient(135deg, #0984e3 0%, #00cec9 100%); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: 700; width: 100%; box-shadow: 0 4px 15px rgba(9, 132, 227, 0.3); }
     .elegant-footer { text-align: center; padding: 40px; color: #636e72; font-size: 14px; }
     </style>
@@ -162,15 +162,32 @@ elif page == "🏗️ Site Data Entry":
 # --- 8. FINANCE LEDGER ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
+    
+    # Fetch data for dropdowns
+    c_res = supabase.table("client_master").select("client_name").execute()
+    t_res = supabase.table("team_master").select("team_name").execute()
+    client_list = [c['client_name'] for c in c_res.data] if c_res.data else []
+    team_list = [t['team_name'] for t in t_res.data] if t_res.data else []
+
     with st.form("finance_form", clear_on_submit=True):
         f1, f2, f3 = st.columns(3)
-        fr, to, dt = f1.text_input("Received From"), f2.text_input("Paid To"), f3.date_input("Date", datetime.now())
+        # Dropdown for Client (Received From)
+        fr = f1.selectbox("Received From (Client)", ["Select Client"] + client_list)
+        # Dropdown for Team (Paid To)
+        to = f2.selectbox("Paid To (Team)", ["Select Team"] + team_list)
+        dt = f3.date_input("Date", datetime.now())
+        
         f4, f5 = st.columns(2)
-        ra, pa = f4.number_input("Received Amt", min_value=0.0), f5.number_input("Paid Amt", min_value=0.0)
+        ra = f4.number_input("Received Amt", min_value=0.0)
+        pa = f5.number_input("Paid Amt", min_value=0.0)
+        
         if st.form_submit_button("Record Transaction"):
-            f_data = {"received_from": fr, "paid_to": to, "transaction_date": str(dt), "received_amt": ra, "paid_amount": pa}
-            supabase.table("finance").insert(f_data).execute()
-            st.success("Transaction Logged!")
+            if fr != "Select Client" and to != "Select Team":
+                f_data = {"received_from": fr, "paid_to": to, "transaction_date": str(dt), "received_amt": ra, "paid_amount": pa}
+                supabase.table("finance").insert(f_data).execute()
+                st.success("Transaction Logged!")
+            else:
+                st.error("Please select both Client and Team.")
             
     st.divider()
     st.subheader("💰 Transaction Ledger")
