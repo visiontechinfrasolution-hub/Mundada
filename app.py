@@ -14,6 +14,7 @@ st.markdown("""
     div[data-testid="stMetric"] { background: #ffffff; border-radius: 15px; padding: 20px; border-left: 5px solid #0ea5e9; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); }
     .stButton>button { background: linear-gradient(135deg, #0f172a 0%, #334155 100%); color: white !important; border-radius: 10px; font-weight: 700; }
     div.stForm { background: #f8fafc; border-radius: 20px; border: 1px solid #e2e8f0; padding: 30px; }
+    .balance-box { padding: 10px; border-radius: 10px; background-color: #fef2f2; border: 1px solid #fee2e2; margin-bottom: 20px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -157,71 +158,62 @@ elif page == "🏗️ Site Data Entry":
 # --- 8. FINANCE LEDGER ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
-    
     pay_type = st.radio("Select Payment Type", ["Payment Received", "Payment Paid"], horizontal=True)
     
-    s_res = supabase.table("site_data").select("project_id", "received_amt", "team_paid_amt").execute()
+    s_res = supabase.table("site_data").select("project_id", "received_amt", "team_paid_amt", "team_billing").execute()
     projects = ["None"] + [s['project_id'] for s in s_res.data] if s_res.data else ["None"]
     
     if pay_type == "Payment Received":
         c_res = supabase.table("client_master").select("client_name").execute()
-        
-        # --- FIXED UNIQUE CLIENTS LOGIC ---
         master_clients = [c['client_name'] for c in c_res.data] if c_res.data else []
-        # Combine and remove duplicates (case insensitive check)
         combined = set(master_clients + ["Dilip Mundada", "Indus Towers Ltd."])
         clients = ["Select"] + sorted(list(combined))
 
         f_client = st.selectbox("Received From (Client)", clients)
         f_date = st.date_input("Date", datetime.now(), key="recv_date")
         f_amt = st.number_input("Received Amt", value=None, key="recv_amt")
-        
         f_project = "None"
-        if f_client == "Indus Towers Ltd.":
-            f_project = st.selectbox("Project ID", projects, key="recv_proj")
-
+        if f_client == "Indus Towers Ltd.": f_project = st.selectbox("Project ID", projects, key="recv_proj")
         if st.button("🚀 Submit Received Payment"):
             if f_client != "Select" and f_amt is not None:
-                supabase.table("finance").insert({
-                    "received_from": f_client, "transaction_date": str(f_date), 
-                    "received_amt": f_amt, "project_id": f_project if f_project != "None" else None,
-                    "payment_type": "Received"
-                }).execute()
-                
+                supabase.table("finance").insert({"received_from": f_client, "transaction_date": str(f_date), "received_amt": f_amt, "project_id": f_project if f_project != "None" else None, "payment_type": "Received"}).execute()
                 if f_client == "Indus Towers Ltd." and f_project != "None":
                     current_row = next((item for item in s_res.data if item["project_id"] == f_project), None)
                     old_amt = float(current_row['received_amt']) if current_row and current_row['received_amt'] else 0.0
                     supabase.table("site_data").update({"received_amt": old_amt + float(f_amt)}).eq("project_id", f_project).execute()
-                
                 st.success("Finance Ledger Updated!"); st.rerun()
             else: st.error("Please fill all required fields.")
 
     else:
+        # --- PAYMENT PAID LOGIC WITH RED BALANCE ---
         t_master_res = supabase.table("team_master").select("team_name").execute()
         teams_list = ["Select"] + [t['team_name'] for t in t_master_res.data] if t_master_res.data else ["Select"]
         
         p_team = st.selectbox("Paid To (Team Name)", teams_list)
+        p_project = st.selectbox("Project ID", projects, key="paid_proj")
+        
+        # Balance Calculation and Display in Red
+        if p_project != "None":
+            site_info = next((item for item in s_res.data if item["project_id"] == p_project), None)
+            if site_info:
+                billing = float(site_info['team_billing']) if site_info['team_billing'] else 0.0
+                paid = float(site_info['team_paid_amt']) if site_info['team_paid_amt'] else 0.0
+                balance = billing - paid
+                st.markdown(f"<div class='balance-box'><h3 style='color: #dc2626; margin:0;'>Current Team Balance: ₹ {balance:,.0f}</h3></div>", unsafe_allow_html=True)
+
         p_date = st.date_input("Date", datetime.now(), key="paid_date")
         p_amt = st.number_input("Paid Amt", value=None, key="paid_amt")
-        p_project = st.selectbox("Project ID", projects, key="paid_proj")
         
         if st.button("🚀 Submit Paid Payment"):
             if p_team != "Select" and p_amt is not None and p_project != "None":
-                supabase.table("finance").insert({
-                    "received_from": p_team, "transaction_date": str(p_date), 
-                    "received_amt": -float(p_amt), "project_id": p_project,
-                    "payment_type": "Paid"
-                }).execute()
-                
+                supabase.table("finance").insert({"received_from": p_team, "transaction_date": str(p_date), "received_amt": -float(p_amt), "project_id": p_project, "payment_type": "Paid"}).execute()
                 current_row = next((item for item in s_res.data if item["project_id"] == p_project), None)
                 old_paid = float(current_row['team_paid_amt']) if current_row and current_row['team_paid_amt'] else 0.0
                 supabase.table("site_data").update({"team_paid_amt": old_paid + float(p_amt)}).eq("project_id", p_project).execute()
-                
                 st.success(f"Payment recorded and Site Data Updated!"); st.rerun()
             else: st.error("Team Name, Amount, and Project ID are mandatory.")
 
     st.divider()
     st.subheader("📜 Finance Transactions")
     f_all = supabase.table("finance").select("*").order("transaction_date", desc=True).execute()
-    if f_all.data:
-        st.dataframe(pd.DataFrame(f_all.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
+    if f_all.data: st.dataframe(pd.DataFrame(f_all.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
