@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 import io
 
-# --- 1. PAGE CONFIG & STYLE (UNTOUCHED) ---
+# --- 1. PAGE CONFIG & LAVISH CLEAN STYLE ---
 st.set_page_config(page_title="Visiontech Mundada", page_icon="💎", layout="wide")
 
 st.markdown("""
@@ -29,14 +29,14 @@ def to_excel(df):
         df.to_excel(writer, index=False, sheet_name='Sheet1')
     return output.getvalue()
 
-# --- 4. SIDEBAR ---
+# --- 4. SIDEBAR NAVIGATION ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #0f172a;'>MUNDADA</h1>", unsafe_allow_html=True)
     st.divider()
     page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger"])
     st.info(f"User: Mayur Patil\nDate: 29-Apr-2026")
 
-# --- 5. DASHBOARD (FIXED: WCC LINE RESTORED) ---
+# --- 5. DASHBOARD (FIXED: BREAKDOWN & WCC RESTORED) ---
 if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     try:
@@ -60,7 +60,6 @@ if page == "🏠 Dashboard":
             c2_3.metric("Total Team Balance", f"₹ {t_bill - t_paid:,.0f}")
             
             st.divider()
-            # RESTORED WCC LINE
             st.markdown("### 💳 WCC & Client Recovery")
             c3_1, c3_2, c3_3 = st.columns(3)
             wcc_tot, rec_tot = df_s['wcc_amt'].sum(), df_s['received_amt'].sum()
@@ -92,11 +91,12 @@ elif page == "📝 Master Registration":
             if st.form_submit_button("Save Team"):
                 if tn: supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute(); st.success("Saved")
 
-# --- 7. SITE DATA ENTRY (FIXED: SINGLE TABLE WITH EDIT AT START) ---
+# --- 7. SITE DATA ENTRY (FIXED: ALL COLUMNS + UPLOAD) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
 
+    # Fetch Data
     res = supabase.table("site_data").select("*").execute()
     df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
 
@@ -105,9 +105,11 @@ elif page == "🏗️ Site Data Entry":
     if tc1.button("➕ New Site"): 
         st.session_state.edit_row_data = None
         st.rerun()
-    if not df.empty: tc2.download_button("📥 Download Excel", data=to_excel(df), file_name="Site_Data.xlsx")
+    if not df.empty: tc2.download_button("📥 Download", data=to_excel(df), file_name="Site_Data.xlsx")
+    
+    # Bulk Upload Restored
     uploaded_file = tc3.file_uploader("📤 Bulk Upload", type=['xlsx'], label_visibility="collapsed")
-    search = tc4.text_input("🔍 Search Database...", placeholder="Project ID, Site ID, Team...")
+    search = tc4.text_input("🔍 Search Database...", placeholder="Search Site ID, Project ID...")
 
     # FORM SECTION
     er = st.session_state.edit_row_data
@@ -137,26 +139,22 @@ elif page == "🏗️ Site Data Entry":
                 st.rerun()
 
     st.divider()
-    # SINGLE CLEAN TABLE (REMOVED DOUBLE TABLE NATAK)
+    # SINGLE CLEAN TABLE WITH ALL COLUMNS
     if not df.empty:
         if search: df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
-        st.subheader("📋 Live Site Database")
+        st.subheader("📋 Detailed Database")
         
-        # Display Loop: Action Button and Main Columns
+        # Display Loop for Edit Action
         for idx, row in df.iterrows():
             r = st.columns([0.6, 2, 2, 2, 2, 2])
-            # Edit button at the start of every line
             if r[0].button("📝", key=f"btn_{row['id']}"):
                 st.session_state.edit_row_data = row.to_dict(); st.rerun()
-            r[1].write(f"**ID:** {row['project_id']}")
-            r[2].write(f"**Site:** {row['site_id']}")
-            r[3].write(row['site_name'])
-            r[4].write(row['team_name'])
-            r[5].write(f"Status: {row['site_status']}")
-            st.divider()
-
-        with st.expander("📊 View All Columns (Horizontal Scroll)"):
-            st.dataframe(df.drop(columns=['id']), use_container_width=True)
+            r[1].write(f"**ID:** {row['project_id']}"); r[2].write(f"**Site:** {row['site_id']}"); r[3].write(row['site_name']); r[4].write(row['team_name']); r[5].write(f"Status: {row['site_status']}")
+        
+        st.divider()
+        st.markdown("### 📊 Complete Raw Data View (Horizontal Scroll)")
+        # This shows every single column from Supabase
+        st.dataframe(df.drop(columns=['id']), use_container_width=True)
 
 # --- 8. FINANCE LEDGER ---
 elif page == "💸 Finance Ledger":
