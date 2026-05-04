@@ -19,19 +19,21 @@ st.set_page_config(
     page_title="Visiontech Mundada", 
     page_icon="💎", 
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={} # BANNED ALL DEFAULT MENU SHORTCUTS
 )
 
-# STOP CLEAR CACHE POPUP: Custom JS to block 'C' key shortcut
+# FORCE STOP CLEAR CACHE POPUP: Advanced JS to block 'C' and 'Shift+C'
 components.html(
     """
     <script>
-    const doc = window.parent.document;
-    doc.addEventListener('keydown', function(e) {
-        if (e.keyCode === 67 && (e.ctrlKey || e.metaKey)) {
+    const stopShortcuts = (e) => {
+        if (e.key.toLowerCase() === 'c' || e.keyCode === 67) {
             e.stopImmediatePropagation();
         }
-    }, True);
+    };
+    window.parent.document.addEventListener('keydown', stopShortcuts, true);
+    window.document.addEventListener('keydown', stopShortcuts, true);
     </script>
     """,
     height=0,
@@ -151,7 +153,7 @@ if page == "🏠 Dashboard":
             c3_3.metric("WCC Pending Balance", f"₹ {wcc_tot - rec_tot:,.0f}")
     except Exception as e: st.info("Dashboard loading...")
 
-# --- 6. MASTER REGISTRATION (LATEST FIRST) ---
+# --- 6. MASTER REGISTRATION ---
 elif page == "📝 Master Registration":
     st.markdown("<h1>📋 Master Registry</h1>", unsafe_allow_html=True)
     tab1, tab2, tab3 = st.tabs(["👥 Clients", "🛠️ Teams", "📁 Projects"])
@@ -193,7 +195,7 @@ elif page == "📝 Master Registration":
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
-# --- 7. SITE DATA ENTRY (LATEST FIRST) ---
+# --- 7. SITE DATA ENTRY (FORCED DESC ORDER) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
@@ -266,6 +268,7 @@ elif page == "🏗️ Site Data Entry":
             else: supabase.table("site_data").insert(data).execute()
             st.rerun()
 
+    # FORCE LATEST FIRST BY CREATED_AT
     res = supabase.table("site_data").select("*").order("created_at", desc=True).execute()
     df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     
