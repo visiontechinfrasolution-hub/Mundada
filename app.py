@@ -21,12 +21,22 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap');
     html, body, [class*="st-"] { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
     
-    /* Dark Borders for all Input Boxes */
-    .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>div, .stTextArea>div>div>textarea {
+    /* Dark Borders for all Text/Select/TextArea boxes */
+    .stTextInput>div>div>input, .stSelectbox>div>div>div, .stTextArea>div>div>textarea {
         border: 2px solid #1e293b !important;
         border-radius: 8px !important;
         color: #0f172a !important;
         font-weight: 600 !important;
+    }
+
+    /* RED DARK BORDER for Amount (Number Input) Fields */
+    .stNumberInput>div>div {
+        border: 2px solid #b91c1c !important;
+        border-radius: 8px !important;
+    }
+    .stNumberInput input {
+        color: #b91c1c !important;
+        font-weight: 700 !important;
     }
 
     /* Systematic Popup Styling */
@@ -142,7 +152,7 @@ elif page == "📝 Master Registration":
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
-# --- 7. SITE DATA ENTRY (KEYERROR & TABLE COLUMN FIX) ---
+# --- 7. SITE DATA ENTRY (ATTRACTIVE UI WITH DARK BORDERS) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
@@ -216,7 +226,6 @@ elif page == "🏗️ Site Data Entry":
     res = supabase.table("site_data").select("*").execute()
     df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     
-    # Logic for display: Project Name 1st but KEEP id column hidden in st.session_state
     if not df_raw.empty:
         cols_order = ['project_name'] + [c for c in df_raw.columns if c not in ['project_name', 'id']] + ['id']
         df_display = df_raw[cols_order]
@@ -255,12 +264,10 @@ elif page == "🏗️ Site Data Entry":
         st.subheader("📋 Complete Site Database")
         edit_sel = st.selectbox("🎯 Select Project ID to EDIT", ["None"] + df_filtered['project_id'].tolist())
         if edit_sel != "None":
-            # Finding exact record from raw data to ensure 'id' is present
             edit_row = df_raw[df_raw['project_id'] == edit_sel].iloc[0].to_dict()
             if st.button("🛠️ Open Systematic Editor"):
                 open_popup_form(edit_row)
         
-        # Displaying table without 'id'
         st.dataframe(df_filtered.drop(columns=['id'], errors='ignore'), use_container_width=True)
 
 # --- 8. FINANCE LEDGER ---
