@@ -96,7 +96,7 @@ if page == "🏠 Dashboard":
             t_bill, t_paid = df_s['team_billing'].sum(), df_s['team_paid_amt'].sum()
             c2_1.metric("Total Team Billing", f"₹ {t_bill:,.0f}")
             c2_2.metric("Total Team Paid", f"₹ {t_paid:,.0f}")
-            c2_3.metric("Total Team Balance", f"₹ {t_bill - t_paid:,.0f}")
+            c2_3.metric("Total Team Balance", f"₹ {t_paid - t_bill:,.0f}")
     except: st.info("Dashboard loading...")
 
 # --- 6. MASTER REGISTRATION ---
@@ -130,17 +130,15 @@ elif page == "📝 Master Registration":
                         st.rerun()
                     except Exception as e: st.error(f"Error: {e}")
 
-# --- 7. SITE DATA ENTRY (SYSTEMATIC POPUP & RED BUTTON) ---
+# --- 7. SITE DATA ENTRY (FIXED BLANK FIELDS & RULES) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
-    # POPUP DIALOG FOR FORM
     @st.dialog("📝 Project Details Form", width="large")
     def open_popup_form(edit_data=None):
         is_editing = edit_data is not None
         er = edit_data if is_editing else {}
         
-        # Masters for dropdowns
         t_res = supabase.table("team_master").select("team_name").execute()
         teams_list = ["Select"] + [t['team_name'] for t in t_res.data] if t_res.data else ["Select"]
         p_master = supabase.table("project_master").select("project_name").execute()
@@ -158,7 +156,9 @@ elif page == "🏗️ Site Data Entry":
             s_nm = sc4.text_input("Site Name", value=str(er.get('site_name', '')))
             cluster = sc5.text_input("Cluster", value=str(er.get('cluster', '')))
             po_n = sc6.text_input("PO Number", value=str(er.get('po_no', '')))
-            p_amt = st.number_input("Projected Amount", value=float(er.get('project_amt', 0.0)))
+            
+            # Placeholder and value=None ensures it stays blank
+            p_amt = st.number_input("Projected Amount", value=float(er['project_amt']) if is_editing else None, placeholder="Enter amount")
 
             st.markdown('<div class="section-header">👥 2. Team Details</div>', unsafe_allow_html=True)
             tc1, tc2 = st.columns(2)
@@ -169,33 +169,40 @@ elif page == "🏗️ Site Data Entry":
             status = tc2.selectbox("Site Status", st_list, index=st_list.index(status_val) if status_val in st_list else 0)
             
             tc3, tc4 = st.columns(2)
-            t_bill = tc3.number_input("Team Billing", value=float(er.get('team_billing', 0.0)))
-            t_paid = tc4.number_input("Team Paid Amount", value=float(er.get('team_paid_amt', 0.0)))
-            st.markdown(f"<div class='balance-box'>Team Balance (Auto-calculated): ₹ {t_bill - t_paid:,.2f}</div>", unsafe_allow_html=True)
+            t_bill = tc3.number_input("Team Billing", value=float(er['team_billing']) if is_editing else None, placeholder="Enter amount")
+            t_paid = tc4.number_input("Team Paid Amount", value=float(er['team_paid_amt']) if is_editing else None, placeholder="Enter amount")
+            
+            # Rule 2: Team Balance = Paid - Billing
+            calc_t_bill = t_bill if t_bill is not None else 0.0
+            calc_t_paid = t_paid if t_paid is not None else 0.0
+            st.markdown(f"<div class='balance-box'>Team Balance (Auto-calculated): ₹ {calc_t_paid - calc_t_bill:,.2f}</div>", unsafe_allow_html=True)
 
             st.markdown('<div class="section-header">📄 3. VIS Billing Details</div>', unsafe_allow_html=True)
             vc1, vc2 = st.columns(2)
             wcc_n = vc1.text_input("VIS Invoice No.", value=str(er.get('wcc_no', '')))
-            wcc_a = vc1.number_input("VIS Bill Amount", value=float(er.get('wcc_amt', 0.0)))
-            r_amt = vc2.number_input("VIS Received Amt", value=float(er.get('received_amt', 0.0)))
-            st.markdown(f"<div class='balance-box'>VIS Balance (Auto-calculated): ₹ {wcc_a - r_amt:,.2f}</div>", unsafe_allow_html=True)
+            r_amt = vc2.number_input("VIS Received Amt", value=float(er['received_amt']) if is_editing else None, placeholder="Enter amount")
+            
+            wcc_a = st.number_input("VIS Bill Amount", value=float(er['wcc_amt']) if is_editing else None, placeholder="Enter amount")
+            
+            # Rule 3: VIS Balance = Bill - Received
+            calc_wcc_a = wcc_a if wcc_a is not None else 0.0
+            calc_r_amt = r_amt if r_amt is not None else 0.0
+            st.markdown(f"<div class='balance-box'>VIS Balance (Auto-calculated): ₹ {calc_wcc_a - calc_r_amt:,.2f}</div>", unsafe_allow_html=True)
             
             if st.form_submit_button("🚀 Save Project Data", use_container_width=True):
                 data = {
                     "project_name": None if sel_project == "Select" else sel_project,
                     "project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, 
-                    "site_status": None if status == "Select" else status, "project_amt": p_amt, "po_no": po_n, 
-                    "team_name": None if t_name == "Select" else t_name, "team_billing": t_bill, 
-                    "team_paid_amt": t_paid, "wcc_no": wcc_n, "wcc_amt": wcc_a, "received_amt": r_amt
+                    "site_status": None if status == "Select" else status, "project_amt": p_amt or 0, "po_no": po_n, 
+                    "team_name": None if t_name == "Select" else t_name, "team_billing": t_bill or 0, 
+                    "team_paid_amt": t_paid or 0, "wcc_no": wcc_n, "wcc_amt": wcc_a or 0, "received_amt": r_amt or 0
                 }
                 if is_editing: supabase.table("site_data").update(data).eq('id', er['id']).execute()
                 else: supabase.table("site_data").insert(data).execute()
                 st.rerun()
 
-    # ACTION BAR WITH RED BUTTON AND SYSTEMATIC UPLOAD
     res = supabase.table("site_data").select("*").execute()
     df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
-
     c_btn, c_up, c_search = st.columns([1.5, 2.5, 3])
 
     with c_btn:
@@ -242,22 +249,23 @@ elif page == "💸 Finance Ledger":
     if pay_type == "Payment Received":
         with st.form("recv_form"):
             f_client = st.text_input("From Client")
-            f_amt = st.number_input("Amount")
+            f_amt = st.number_input("Amount", value=None, placeholder="Enter amount")
             f_project = st.selectbox("Project ID", projects)
             if st.form_submit_button("Submit"):
-                if f_amt > 0:
+                if f_amt and f_amt > 0:
                     supabase.table("finance").insert({"received_from": f_client, "received_amt": f_amt}).execute()
                     st.success("Recorded")
                     st.rerun()
     else:
         with st.form("paid_form"):
             p_team = st.text_input("To Team")
-            p_amt = st.number_input("Amount")
+            p_amt = st.number_input("Amount", value=None, placeholder="Enter amount")
             p_project = st.selectbox("Project ID", projects)
             if st.form_submit_button("Submit"):
-                supabase.table("finance").insert({"received_from": p_team, "paid_amount": p_amt}).execute()
-                st.success("Recorded")
-                st.rerun()
+                if p_amt:
+                    supabase.table("finance").insert({"received_from": p_team, "paid_amount": p_amt}).execute()
+                    st.success("Recorded")
+                    st.rerun()
 
 # --- 9. TEAM LEDGER ---
 elif page == "👥 Team Ledger":
@@ -266,5 +274,5 @@ elif page == "👥 Team Ledger":
     if s_res.data:
         df = pd.DataFrame(s_res.data)
         team_df = df.groupby('team_name').sum().reset_index()
-        team_df['Balance'] = team_df['team_billing'] - team_df['team_paid_amt']
+        team_df['Balance'] = team_df['team_paid_amt'] - team_df['team_billing']
         st.dataframe(team_df, use_container_width=True)
