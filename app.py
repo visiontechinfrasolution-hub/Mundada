@@ -23,11 +23,13 @@ st.set_page_config(
     menu_items={}
 )
 
-# STOP CLEAR CACHE POPUP & ADD ENTER-TO-SAVE
+# STOP CLEAR CACHE POPUP & ADD ENTER-TO-SAVE LOGIC
 components.html(
     """
     <script>
     const doc = window.parent.document;
+    
+    // Block Clear Cache Shortcut
     const stopShortcuts = (e) => {
         if (e.key.toLowerCase() === 'c' || e.keyCode === 67) {
             e.stopImmediatePropagation();
@@ -35,6 +37,7 @@ components.html(
     };
     doc.addEventListener('keydown', stopShortcuts, true);
 
+    // Enter Key to Save logic
     doc.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             const buttons = doc.querySelectorAll('button');
@@ -113,6 +116,7 @@ st.markdown("""
     div[data-testid="stMetric"] { background: #ffffff; border-radius: 15px; padding: 20px; border: 2px solid #e2e8f0; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); }
 
     .bulk-report { background: #ffffff; padding: 20px; border-radius: 15px; border: 2px solid #e2e8f0; margin-bottom: 20px; }
+    .report-line { font-size: 1.1rem; font-weight: 600; margin-bottom: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -140,23 +144,36 @@ if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     try:
         s_res = supabase.table("site_data").select("*").execute()
+        f_res = supabase.table("finance").select("*").execute()
         if s_res.data:
             df_s = pd.DataFrame(s_res.data)
+            df_f = pd.DataFrame(f_res.data) if f_res.data else pd.DataFrame(columns=['received_from', 'received_amt'])
+            
             df_s['team_billing'] = pd.to_numeric(df_s['team_billing']).fillna(0)
             df_s['project_amt'] = pd.to_numeric(df_s['project_amt']).fillna(0)
             total_projected_amt = df_s.apply(lambda x: 0 if x['team_billing'] > 0 else x['project_amt'], axis=1).sum()
 
+            st.markdown("### 📍 Summary")
             c1, c2, c3 = st.columns(3)
             c1.metric("Total Site Count", len(df_s))
             c2.metric("Total PO Amt", f"₹ {df_s['po_amt'].astype(float).sum():,.0f}")
             c3.metric("Total Projected Amt", f"₹ {total_projected_amt:,.0f}")
             
             st.divider()
+            st.markdown("### 👥 Team Status")
             c2_1, c2_2, c2_3 = st.columns(3)
             t_bill, t_paid = df_s['team_billing'].sum(), df_s['team_paid_amt'].astype(float).sum()
             c2_1.metric("Total Team Billing", f"₹ {t_bill:,.0f}")
             c2_2.metric("Total Team Paid", f"₹ {t_paid:,.0f}")
             c2_3.metric("Total Team Balance", f"₹ {t_paid - t_bill:,.0f}")
+            
+            st.divider()
+            st.markdown("### 💳 WCC & Client Recovery")
+            c3_1, c3_2, c3_3 = st.columns(3)
+            wcc_tot, rec_tot = df_s['wcc_amt'].astype(float).sum(), df_s['received_amt'].astype(float).sum()
+            c3_1.metric("Total WCC Amt", f"₹ {wcc_tot:,.0f}")
+            c3_2.metric("Total Received Amt", f"₹ {rec_tot:,.0f}")
+            c3_3.metric("WCC Pending Balance", f"₹ {wcc_tot - rec_tot:,.0f}")
     except Exception as e: st.info("Dashboard loading...")
 
 # --- 6. MASTER REGISTRATION ---
@@ -222,6 +239,7 @@ elif page == "🏗️ Site Data Entry":
         
         pa1, pa2 = st.columns(2)
         po_a = pa1.number_input("PO Amount", value=float(er.get('po_amt')) if is_editing and er.get('po_amt') is not None else None, placeholder="Enter amount")
+        
         auto_proj_val = float(er.get('project_amt')) if is_editing and er.get('project_amt') is not None else None
         if po_a is not None and po_a > 0: auto_proj_val = round(po_a * 0.88, 2)
         p_amt = pa2.number_input("Projected Amount", value=auto_proj_val, placeholder="Enter amount")
@@ -247,6 +265,8 @@ elif page == "🏗️ Site Data Entry":
         r_amt = vc2.number_input("VIS Received Amt", value=float(er.get('received_amt')) if is_editing and er.get('received_amt') is not None else None, placeholder="Enter amount")
         wcc_a = st.number_input("VIS Bill Amount", value=float(er.get('wcc_amt')) if is_editing and er.get('wcc_amt') is not None else None, placeholder="Enter amount")
         
+        st.markdown(f"<div class='balance-box'>VIS Balance (Auto-calculated): ₹ {(wcc_a or 0.0) - (r_amt or 0.0):,.2f}</div>", unsafe_allow_html=True)
+        
         if st.button("🚀 SAVE PROJECT DATA", use_container_width=True):
             def clean_num(val):
                 try: return float(val) if (val is not None and not pd.isna(val)) else 0.0
@@ -254,15 +274,17 @@ elif page == "🏗️ Site Data Entry":
             
             check = supabase.table("site_data").select("project_id").eq("project_id", p_id).execute()
             if not is_editing and check.data:
-                st.error(f"❌ Project ID {p_id} exists!"); return
+                st.error(f"❌ Project ID {p_id} already exists!"); return
 
             data = {
                 "project_name": None if sel_project == "Select" else sel_project,
                 "project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, 
-                "site_status": None if status == "Select" else status, "project_amt": clean_num(p_amt), 
-                "po_no": po_n, "po_amt": clean_num(po_a), "team_name": None if t_name == "Select" else t_name, 
-                "team_billing": clean_num(t_bill), "team_paid_amt": clean_num(t_paid), "wcc_no": wcc_n, 
-                "wcc_amt": clean_num(wcc_a), "received_amt": clean_num(r_amt), "work_description": w_desc
+                "site_status": None if status == "Select" else status, 
+                "project_amt": clean_num(p_amt), "po_no": po_n, 
+                "po_amt": clean_num(po_a), "team_name": None if t_name == "Select" else t_name, 
+                "team_billing": clean_num(t_bill), "team_paid_amt": clean_num(t_paid), 
+                "wcc_no": wcc_n, "wcc_amt": clean_num(wcc_a), "received_amt": clean_num(r_amt),
+                "work_description": w_desc
             }
             try:
                 if is_editing: supabase.table("site_data").update(data).eq('id', er['id']).execute()
@@ -304,18 +326,30 @@ elif page == "🏗️ Site Data Entry":
                         success_count += 1; existing_pids.add(pid)
                     except: duplicate_count += 1
 
-                st.markdown(f'<div class="bulk-report"><b>Report:</b> Uploaded: {success_count} | Rejected: {duplicate_count}</div>', unsafe_allow_html=True)
+                st.markdown(f"""
+                    <div class="bulk-report">
+                        <h3 style="color:#0f172a; margin-top:0;">📊 Bulk Upload Report</h3>
+                        <div class="report-line">Total Sites: {len(df_up)}</div>
+                        <div class="report-line" style="color:#059669;">✅ Successfully Uploaded: {success_count}</div>
+                        <div class="report-line" style="color:#dc2626;">❌ Rejected due to Duplicate Project ID: {duplicate_count}</div>
+                    </div>
+                """, unsafe_allow_html=True)
                 if success_count > 0: import time; time.sleep(2); st.rerun()
             except Exception as e: st.error(f"Error: {e}")
 
-    search = st.text_input("🔍 Search Database...", placeholder="Search Project, Site ID...")
+    search = st.text_input("🔍 Search Database...", placeholder="Search Project Name, Site ID, Project ID...")
+    
+    st.divider()
     if not df_display.empty:
         df_filtered = df_display.copy()
-        if search: df_filtered = df_filtered[df_filtered.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+        if search: 
+            df_filtered = df_filtered[df_filtered.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+        
         edit_sel = st.selectbox("🎯 Select Project ID to EDIT", ["None"] + df_filtered['project_id'].tolist())
         if edit_sel != "None":
             edit_row = df_raw[df_raw['project_id'] == edit_sel].iloc[0].to_dict()
             if st.button("🛠️ Open Systematic Editor"): open_popup_form(edit_row)
+        
         st.dataframe(df_filtered.drop(columns=['id'], errors='ignore'), use_container_width=True)
 
 # --- 8. FINANCE LEDGER ---
@@ -331,19 +365,22 @@ elif page == "💸 Finance Ledger":
         f_client = st.selectbox("Received From (Client)", clients)
         f_amt = st.number_input("Received Amt", value=None, placeholder="Enter amount")
         f_project = st.selectbox("Project ID", projects) if f_client == "Indus Towers Ltd." else "None"
-        if st.button("🚀 Submit"):
+        if st.button("🚀 Submit Received Payment"):
             if f_client != "Select" and f_amt:
                 supabase.table("finance").insert({"received_from": f_client, "transaction_date": str(datetime.now().date()), "received_amt": float(f_amt)}).execute()
                 if f_client == "Indus Towers Ltd." and f_project != "None":
                     curr = next(i for i in s_res.data if i["project_id"] == f_project)
                     supabase.table("site_data").update({"received_amt": (float(curr['received_amt']) or 0) + float(f_amt)}).eq("project_id", f_project).execute()
-                st.success("Updated!"); st.rerun()
+                st.success("Finance Ledger Updated!"); st.rerun()
     else:
         t_master = supabase.table("team_master").select("team_name").execute()
-        p_team = st.selectbox("Paid To", ["Select"] + [t['team_name'] for t in t_master.data])
+        p_team = st.selectbox("Paid To (Team Name)", ["Select"] + [t['team_name'] for t in t_master.data])
         p_project = st.selectbox("Project ID", projects)
+        if p_project != "None":
+            site = next(i for i in s_res.data if i["project_id"] == p_project)
+            st.markdown(f"<div class='balance-box'>Current Team Balance: ₹ {(float(site['team_billing']) or 0) - (float(site['team_paid_amt']) or 0):,.0f}</div>", unsafe_allow_html=True)
         p_amt = st.number_input("Paid Amt", value=None, placeholder="Enter amount")
-        if st.button("🚀 Submit Payment"):
+        if st.button("🚀 Submit Paid Payment"):
             if p_team != "Select" and p_amt and p_project != "None":
                 supabase.table("finance").insert({"received_from": p_team, "transaction_date": str(datetime.now().date()), "paid_amount": float(p_amt)}).execute()
                 curr = next(i for i in s_res.data if i["project_id"] == p_project)
@@ -352,11 +389,12 @@ elif page == "💸 Finance Ledger":
 
 # --- 9. TEAM LEDGER ---
 elif page == "👥 Team Ledger":
-    st.markdown("<h1>👥 Team Ledger</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>👥 Team Wise Billing & Balance</h1>", unsafe_allow_html=True)
     s_res = supabase.table("site_data").select("team_name", "team_billing", "team_paid_amt").execute()
     if s_res.data:
         df = pd.DataFrame(s_res.data)
+        df['team_name'] = df['team_name'].fillna("Unassigned")
         team_df = df.groupby('team_name', as_index=False).sum()
-        team_df['Balance'] = team_df['team_paid_amt'] - team_df['team_billing']
+        team_df['Balance Amount (₹)'] = team_df['team_billing'] - team_df['team_paid_amt']
         st.dataframe(team_df, use_container_width=True)
-        st.download_button("📥 Download Excel", data=to_excel(team_df), file_name="Team_Report.xlsx")
+        st.download_button("📥 Download Excel", data=to_excel(team_df), file_name="Team_Wise_Report.xlsx")
