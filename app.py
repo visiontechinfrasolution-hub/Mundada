@@ -88,7 +88,7 @@ with st.sidebar:
     page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger", "👥 Team Ledger"], key="nav_page")
     st.info(f"User: Mayur Patil\nDate: 29-Apr-2026")
 
-# --- 5. DASHBOARD (UPDATED WITH TOTAL PROJECT AMT RULE) ---
+# --- 5. DASHBOARD ---
 if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     try:
@@ -98,11 +98,8 @@ if page == "🏠 Dashboard":
             df_s = pd.DataFrame(s_res.data)
             df_f = pd.DataFrame(f_res.data) if f_res.data else pd.DataFrame(columns=['received_from', 'received_amt'])
             
-            # Forced Rule for Projected Amount calculation
             df_s['team_billing'] = pd.to_numeric(df_s['team_billing']).fillna(0)
             df_s['project_amt'] = pd.to_numeric(df_s['project_amt']).fillna(0)
-            
-            # If Team billing exists (>0), projected amt becomes 0 for that site
             total_projected_amt = df_s.apply(lambda x: 0 if x['team_billing'] > 0 else x['project_amt'], axis=1).sum()
 
             st.markdown("### 📍 Summary")
@@ -128,7 +125,7 @@ if page == "🏠 Dashboard":
             c3_3.metric("WCC Pending Balance", f"₹ {wcc_tot - rec_tot:,.0f}")
     except Exception as e: st.info("Dashboard loading...")
 
-# --- 6. MASTER REGISTRATION ---
+# --- 6. MASTER REGISTRATION (LATEST FIRST) ---
 elif page == "📝 Master Registration":
     st.markdown("<h1>📋 Master Registry</h1>", unsafe_allow_html=True)
     tab1, tab2, tab3 = st.tabs(["👥 Clients", "🛠️ Teams", "📁 Projects"])
@@ -141,7 +138,7 @@ elif page == "📝 Master Registration":
                     st.success("Saved")
                     st.rerun()
         st.divider()
-        c_res = supabase.table("client_master").select("*").execute()
+        c_res = supabase.table("client_master").select("*").order("id", desc=True).execute()
         if c_res.data: st.dataframe(pd.DataFrame(c_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
     with tab2:
         with st.form("tm_reg"):
@@ -152,7 +149,7 @@ elif page == "📝 Master Registration":
                     st.success("Saved")
                     st.rerun()
         st.divider()
-        t_res = supabase.table("team_master").select("*").execute()
+        t_res = supabase.table("team_master").select("*").order("id", desc=True).execute()
         if t_res.data: st.dataframe(pd.DataFrame(t_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
     with tab3:
         with st.form("pr_reg"):
@@ -166,11 +163,11 @@ elif page == "📝 Master Registration":
                     except Exception as e: st.error(f"Error: {e}")
         st.divider()
         try:
-            p_res = supabase.table("project_master").select("*").execute()
+            p_res = supabase.table("project_master").select("*").order("id", desc=True).execute()
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
-# --- 7. SITE DATA ENTRY (FORCED CALCULATION FIX & NEW LAYOUT) ---
+# --- 7. SITE DATA ENTRY (LATEST FIRST) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
@@ -240,8 +237,8 @@ elif page == "🏗️ Site Data Entry":
             else: supabase.table("site_data").insert(data).execute()
             st.rerun()
 
-    # ACTION BAR
-    res = supabase.table("site_data").select("*").execute()
+    # Fetch with Descending Order
+    res = supabase.table("site_data").select("*").order("id", desc=True).execute()
     df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     
     if not df_raw.empty:
@@ -285,10 +282,9 @@ elif page == "🏗️ Site Data Entry":
             edit_row = df_raw[df_raw['project_id'] == edit_sel].iloc[0].to_dict()
             if st.button("🛠️ Open Systematic Editor"):
                 open_popup_form(edit_row)
-        
         st.dataframe(df_filtered.drop(columns=['id'], errors='ignore'), use_container_width=True)
 
-# --- 8. FINANCE LEDGER ---
+# --- 8. FINANCE LEDGER (LATEST FIRST) ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
     pay_type = st.radio("Select Payment Type", ["Payment Received", "Payment Paid"], horizontal=True, key="pay_type")
@@ -296,7 +292,7 @@ elif page == "💸 Finance Ledger":
     s_res = supabase.table("site_data").select("project_id", "received_amt", "team_paid_amt", "team_billing").execute()
     projects = ["None"] + [s['project_id'] for s in s_res.data] if s_res.data else ["None"]
     
-    f_all_res = supabase.table("finance").select("*").order("transaction_date", desc=True).execute()
+    f_all_res = supabase.table("finance").select("*").order("transaction_date", desc=True).order("created_at", desc=True).execute()
     df_finance = pd.DataFrame(f_all_res.data) if f_all_res.data else pd.DataFrame()
 
     if pay_type == "Payment Received":
