@@ -117,9 +117,9 @@ elif page == "📝 Master Registration":
                         st.success("Project Saved")
                         st.rerun()
                     except Exception as e:
-                        st.error("Error: project_master table not found in database. Please create it in Supabase SQL Editor.")
+                        st.error("Error: project_master table not found. Run the SQL script in Supabase Editor first.")
         st.divider()
-        st.subheader("📁 Registered Projects")
+        st.subheader("📁 Registered Projects List")
         try:
             p_res = supabase.table("project_master").select("*").execute()
             if p_res.data:
@@ -127,7 +127,7 @@ elif page == "📝 Master Registration":
             else:
                 st.info("No projects registered yet.")
         except Exception as e:
-            st.error("Table 'project_master' missing. Create it to see the list.")
+            st.error("Could not load Project list. Check if table 'project_master' exists.")
 
 # --- 7. SITE DATA ENTRY ---
 elif page == "🏗️ Site Data Entry":
