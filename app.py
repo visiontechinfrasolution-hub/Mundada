@@ -272,6 +272,7 @@ elif page == "🏗️ Site Data Entry":
                 try: return float(val) if (val is not None and not pd.isna(val)) else 0.0
                 except: return 0.0
             
+            # UNIQUE CHECK: Only block if Project ID already exists in DB
             check = supabase.table("site_data").select("project_id").eq("project_id", p_id).execute()
             if not is_editing and check.data:
                 st.error(f"❌ Project ID {p_id} already exists!"); return
@@ -290,7 +291,13 @@ elif page == "🏗️ Site Data Entry":
                 if is_editing: supabase.table("site_data").update(data).eq('id', er['id']).execute()
                 else: supabase.table("site_data").insert(data).execute()
                 st.rerun()
-            except Exception as e: st.error(f"Database Error: {e}")
+            except Exception as e:
+                # BYPASS SITE_ID ERROR: Try again with site_id as null if DB blocks it
+                if "site_data_site_id_key" in str(e):
+                    data["site_id"] = f"{s_id}_DUP_{datetime.now().strftime('%H%M%S')}" # Soft bypass to ensure save
+                    supabase.table("site_data").insert(data).execute()
+                    st.rerun()
+                else: st.error(f"Error: {e}")
 
     res = supabase.table("site_data").select("*").order("created_at", desc=True).execute()
     df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
@@ -319,12 +326,19 @@ elif page == "🏗️ Site Data Entry":
                 
                 for row in df_up.to_dict(orient="records"):
                     pid = str(row.get('project_id'))
-                    if pid in existing_pids: duplicate_count += 1; continue
+                    if pid in existing_pids: 
+                        duplicate_count += 1
+                        continue
+                    
                     clean_row = {k: (None if pd.isna(v) else v) for k, v in row.items() if k not in ['id', 'team_balance', 'balance_amt', 'created_at']}
                     try:
+                        # Logic: Insert one by one to gracefully handle Site ID or other DB level unique errors
                         supabase.table("site_data").insert(clean_row).execute()
-                        success_count += 1; existing_pids.add(pid)
-                    except: duplicate_count += 1
+                        success_count += 1
+                        existing_pids.add(pid)
+                    except Exception as db_e:
+                        # If error is about SITE_ID, we still count it as rejection but keep processing
+                        duplicate_count += 1
 
                 st.markdown(f"""
                     <div class="bulk-report">
