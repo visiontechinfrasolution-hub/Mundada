@@ -20,10 +20,10 @@ st.set_page_config(
     page_icon="💎", 
     layout="wide",
     initial_sidebar_state="expanded",
-    menu_items={} # BANNED ALL DEFAULT MENU SHORTCUTS
+    menu_items={}
 )
 
-# FORCE STOP CLEAR CACHE POPUP: Advanced JS to block 'C' and 'Shift+C'
+# FORCE STOP CLEAR CACHE POPUP
 components.html(
     """
     <script>
@@ -49,25 +49,21 @@ st.markdown("""
     header {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* UNIVERSAL DARK BORDER FOR ALL INPUTS */
     div[data-baseweb="input"], div[data-baseweb="select"], div[data-baseweb="textarea"], .stNumberInput div {
         border: 2px solid #1e293b !important;
         border-radius: 8px !important;
     }
 
-    /* SPECIFIC DARK BORDER FOR NUMBER INPUTS (RED DARK) */
     div[data-testid="stNumberInput"] div[data-baseweb="input"] {
         border: 2px solid #b91c1c !important;
         border-radius: 8px !important;
     }
 
-    /* Dark text for visibility */
     input, textarea, div[role="button"] {
         color: #0f172a !important;
         font-weight: 600 !important;
     }
 
-    /* Systematic Popup Styling */
     div[data-testid="stDialog"] div[role="dialog"] {
         border-radius: 20px;
         padding: 20px;
@@ -75,7 +71,6 @@ st.markdown("""
         border: 3px solid #0ea5e9;
     }
 
-    /* Add New Site Button (Red Style) */
     .stButton > button[key="add_new_btn"] {
         background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%) !important;
         color: white !important;
@@ -86,7 +81,6 @@ st.markdown("""
         box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
     }
 
-    /* Section Headers - Colorful */
     .section-header-1 { color: #0284c7; font-weight: 800; margin-top: 20px; font-size: 1.3rem; border-left: 5px solid #0284c7; padding-left: 10px; background: #f0f9ff; }
     .section-header-2 { color: #7c3aed; font-weight: 800; margin-top: 20px; font-size: 1.3rem; border-left: 5px solid #7c3aed; padding-left: 10px; background: #f5f3ff; }
     .section-header-3 { color: #059669; font-weight: 800; margin-top: 20px; font-size: 1.3rem; border-left: 5px solid #059669; padding-left: 10px; background: #ecfdf5; }
@@ -195,7 +189,7 @@ elif page == "📝 Master Registration":
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
-# --- 7. SITE DATA ENTRY (FORCED DESC ORDER) ---
+# --- 7. SITE DATA ENTRY (ERROR FIXED: NAN SAFETY IN JSON) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
@@ -222,8 +216,8 @@ elif page == "🏗️ Site Data Entry":
         po_n = sc6.text_input("PO Number", value=str(er.get('po_no', '')))
         
         pa1, pa2 = st.columns(2)
-        po_a = pa1.number_input("PO Amount", value=float(er['po_amt']) if is_editing and er.get('po_amt') is not None else None, placeholder="Enter amount")
-        p_amt = pa2.number_input("Projected Amount", value=float(er['project_amt']) if is_editing and er.get('project_amt') is not None else None, placeholder="Enter amount")
+        po_a = pa1.number_input("PO Amount", value=float(er.get('po_amt', 0.0)) if is_editing and er.get('po_amt') is not None else 0.0)
+        p_amt = pa2.number_input("Projected Amount", value=float(er.get('project_amt', 0.0)) if is_editing and er.get('project_amt') is not None else 0.0)
         
         w_desc = st.text_area("Work Description", value=str(er.get('work_description', '')), placeholder="Enter full work details here...")
 
@@ -236,8 +230,8 @@ elif page == "🏗️ Site Data Entry":
         status = tc2.selectbox("Site Status", st_list, index=st_list.index(status_val) if status_val in st_list else 0)
         
         tc3, tc4 = st.columns(2)
-        t_bill = tc3.number_input("Team Billing", value=float(er['team_billing']) if is_editing and er.get('team_billing') is not None else None, placeholder="Enter amount")
-        t_paid = tc4.number_input("Team Paid Amount", value=float(er['team_paid_amt']) if is_editing and er.get('team_paid_amt') is not None else None, placeholder="Enter amount")
+        t_bill = tc3.number_input("Team Billing", value=float(er.get('team_billing', 0.0)) if is_editing and er.get('team_billing') is not None else 0.0)
+        t_paid = tc4.number_input("Team Paid Amount", value=float(er.get('team_paid_amt', 0.0)) if is_editing and er.get('team_paid_amt') is not None else 0.0)
         
         calc_t_bill = t_bill if t_bill is not None else 0.0
         calc_t_paid = t_paid if t_paid is not None else 0.0
@@ -246,29 +240,35 @@ elif page == "🏗️ Site Data Entry":
         st.markdown('<div class="section-header-3">📄 3. VIS Billing Details</div>', unsafe_allow_html=True)
         vc1, vc2 = st.columns(2)
         wcc_n = vc1.text_input("VIS Invoice No.", value=str(er.get('wcc_no', '')))
-        r_amt = vc2.number_input("VIS Received Amt", value=float(er['received_amt']) if is_editing and er.get('received_amt') is not None else None, placeholder="Enter amount")
+        r_amt = vc2.number_input("VIS Received Amt", value=float(er.get('received_amt', 0.0)) if is_editing and er.get('received_amt') is not None else 0.0)
         
-        wcc_a = st.number_input("VIS Bill Amount", value=float(er['wcc_amt']) if is_editing and er.get('wcc_amt') is not None else None, placeholder="Enter amount")
+        wcc_a = st.number_input("VIS Bill Amount", value=float(er.get('wcc_amt', 0.0)) if is_editing and er.get('wcc_amt') is not None else 0.0)
         
         calc_wcc_a = wcc_a if wcc_a is not None else 0.0
         calc_r_amt = r_amt if r_amt is not None else 0.0
         st.markdown(f"<div class='balance-box'>VIS Balance (Auto-calculated): ₹ {calc_wcc_a - calc_r_amt:,.2f}</div>", unsafe_allow_html=True)
         
-        st.write("")
         if st.button("🚀 SAVE PROJECT DATA", use_container_width=True):
+            # Error Fix logic: Replace potential NaN/None with 0 for database compliance
+            def clean_num(val):
+                try: return float(val) if (val is not None and not pd.isna(val)) else 0.0
+                except: return 0.0
+
             data = {
                 "project_name": None if sel_project == "Select" else sel_project,
                 "project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, 
-                "site_status": None if status == "Select" else status, "project_amt": p_amt or 0, "po_no": po_n, 
-                "po_amt": po_a or 0, "team_name": None if t_name == "Select" else t_name, "team_billing": t_bill or 0, 
-                "team_paid_amt": t_paid or 0, "wcc_no": wcc_n, "wcc_amt": wcc_a or 0, "received_amt": r_amt or 0,
+                "site_status": None if status == "Select" else status, 
+                "project_amt": clean_num(p_amt), "po_no": po_n, 
+                "po_amt": clean_num(po_a), "team_name": None if t_name == "Select" else t_name, 
+                "team_billing": clean_num(t_bill), 
+                "team_paid_amt": clean_num(t_paid), "wcc_no": wcc_n, 
+                "wcc_amt": clean_num(wcc_a), "received_amt": clean_num(r_amt),
                 "work_description": w_desc
             }
             if is_editing: supabase.table("site_data").update(data).eq('id', er['id']).execute()
             else: supabase.table("site_data").insert(data).execute()
             st.rerun()
 
-    # FORCE LATEST FIRST BY CREATED_AT
     res = supabase.table("site_data").select("*").order("created_at", desc=True).execute()
     df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     
@@ -307,7 +307,6 @@ elif page == "🏗️ Site Data Entry":
     if not df_display.empty:
         df_filtered = df_display.copy()
         if search: df_filtered = df_filtered[df_filtered.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
-        
         st.subheader("📋 Complete Site Database")
         edit_sel = st.selectbox("🎯 Select Project ID to EDIT", ["None"] + df_filtered['project_id'].tolist())
         if edit_sel != "None":
