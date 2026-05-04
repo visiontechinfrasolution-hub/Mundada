@@ -99,10 +99,11 @@ if page == "🏠 Dashboard":
             c2_3.metric("Total Team Balance", f"₹ {t_paid - t_bill:,.0f}")
     except: st.info("Dashboard loading...")
 
-# --- 6. MASTER REGISTRATION ---
+# --- 6. MASTER REGISTRATION (TABLES RESTORED) ---
 elif page == "📝 Master Registration":
     st.markdown("<h1>📋 Master Registry</h1>", unsafe_allow_html=True)
     tab1, tab2, tab3 = st.tabs(["👥 Clients", "🛠️ Teams", "📁 Projects"])
+    
     with tab1:
         with st.form("cl_reg"):
             cn = st.text_input("Client Name")
@@ -111,6 +112,11 @@ elif page == "📝 Master Registration":
                     supabase.table("client_master").insert({"client_name": cn}).execute()
                     st.success("Saved")
                     st.rerun()
+        st.divider()
+        st.subheader("👥 Registered Clients List")
+        c_res = supabase.table("client_master").select("*").execute()
+        if c_res.data: st.dataframe(pd.DataFrame(c_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
+
     with tab2:
         with st.form("tm_reg"):
             tn, tl = st.text_input("Team Name"), st.text_input("Leader Name")
@@ -119,6 +125,11 @@ elif page == "📝 Master Registration":
                     supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute()
                     st.success("Saved")
                     st.rerun()
+        st.divider()
+        st.subheader("🛠️ Registered Teams List")
+        t_res = supabase.table("team_master").select("*").execute()
+        if t_res.data: st.dataframe(pd.DataFrame(t_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
+
     with tab3:
         with st.form("pr_reg"):
             pn = st.text_input("Project Name")
@@ -129,6 +140,12 @@ elif page == "📝 Master Registration":
                         st.success("Project Saved")
                         st.rerun()
                     except Exception as e: st.error(f"Error: {e}")
+        st.divider()
+        st.subheader("📁 Registered Projects List")
+        try:
+            p_res = supabase.table("project_master").select("*").execute()
+            if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
+        except: st.warning("Project Master table loading...")
 
 # --- 7. SITE DATA ENTRY (FORCED CALCULATION FIX) ---
 elif page == "🏗️ Site Data Entry":
@@ -196,10 +213,8 @@ elif page == "🏗️ Site Data Entry":
             else: supabase.table("site_data").insert(data).execute()
             st.rerun()
 
-    # ACTION BAR (ADDED DOWNLOAD BUTTON)
     res = supabase.table("site_data").select("*").execute()
     df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
-    
     c_add, c_down, c_up, c_search = st.columns([1.2, 1.2, 2.3, 2.5])
 
     with c_add:
@@ -207,8 +222,7 @@ elif page == "🏗️ Site Data Entry":
             open_popup_form()
 
     with c_down:
-        if not df.empty:
-            st.download_button("📥 Excel Download", data=to_excel(df), file_name="Site_Data.xlsx", use_container_width=True)
+        if not df.empty: st.download_button("📥 Excel Download", data=to_excel(df), file_name="Site_Data.xlsx", use_container_width=True)
 
     with c_up:
         st.markdown('<div class="upload-container">', unsafe_allow_html=True)
