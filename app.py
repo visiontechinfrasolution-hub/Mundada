@@ -88,7 +88,7 @@ with st.sidebar:
     page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger", "👥 Team Ledger"], key="nav_page")
     st.info(f"User: Mayur Patil\nDate: 29-Apr-2026")
 
-# --- 5. DASHBOARD ---
+# --- 5. DASHBOARD (RESTORED FROM OLD CODE) ---
 if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     try:
@@ -98,19 +98,37 @@ if page == "🏠 Dashboard":
             df_s = pd.DataFrame(s_res.data)
             df_f = pd.DataFrame(f_res.data) if f_res.data else pd.DataFrame(columns=['received_from', 'received_amt'])
             
+            st.markdown("### 📍 Summary")
             c1, c2 = st.columns(2)
             c1.metric("Total Site Count", len(df_s))
             c2.metric("Total PO Amt", f"₹ {df_s['po_amt'].sum():,.0f}")
             
             st.divider()
+            st.markdown("### 👥 Team Status")
             c2_1, c2_2, c2_3 = st.columns(3)
             t_bill, t_paid = df_s['team_billing'].sum(), df_s['team_paid_amt'].sum()
             c2_1.metric("Total Team Billing", f"₹ {t_bill:,.0f}")
             c2_2.metric("Total Team Paid", f"₹ {t_paid:,.0f}")
-            c2_3.metric("Total Team Balance", f"₹ {t_paid - t_bill:,.0f}")
+            c2_3.metric("Total Team Balance", f"₹ {t_bill - t_paid:,.0f}")
+            
+            st.divider()
+            st.markdown("### 💳 WCC & Client Recovery")
+            c3_1, c3_2, c3_3 = st.columns(3)
+            wcc_tot, rec_tot = df_s['wcc_amt'].sum(), df_s['received_amt'].sum()
+            c3_1.metric("Total WCC Amt", f"₹ {wcc_tot:,.0f}")
+            c3_2.metric("Total Received Amt", f"₹ {rec_tot:,.0f}")
+            c3_3.metric("WCC Pending Balance", f"₹ {wcc_tot - rec_tot:,.0f}")
+            
+            st.divider()
+            st.markdown("### 💰 Recovery Breakdown")
+            c4_1, c4_2 = st.columns(2)
+            m_amt = df_f[df_f['received_from'].str.contains("dilip mundada", case=False, na=False)]['received_amt'].astype(float).sum()
+            i_amt = df_f[df_f['received_from'].str.contains("indus tower", case=False, na=False)]['received_amt'].astype(float).sum()
+            c4_1.metric("Total Recv. From Dilip Mundada", f"₹ {m_amt:,.0f}")
+            c4_2.metric("Total Recv. From Indus Towers", f"₹ {i_amt:,.0f}")
     except: st.info("Dashboard loading...")
 
-# --- 6. MASTER REGISTRATION ---
+# --- 6. MASTER REGISTRATION (Best State - NO CHANGES) ---
 elif page == "📝 Master Registration":
     st.markdown("<h1>📋 Master Registry</h1>", unsafe_allow_html=True)
     tab1, tab2, tab3 = st.tabs(["👥 Clients", "🛠️ Teams", "📁 Projects"])
@@ -152,7 +170,7 @@ elif page == "📝 Master Registration":
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
-# --- 7. SITE DATA ENTRY (FORCED CALCULATION FIX & NEW LAYOUT) ---
+# --- 7. SITE DATA ENTRY (Best State - NO CHANGES) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
@@ -222,7 +240,6 @@ elif page == "🏗️ Site Data Entry":
             else: supabase.table("site_data").insert(data).execute()
             st.rerun()
 
-    # ACTION BAR
     res = supabase.table("site_data").select("*").execute()
     df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     
@@ -260,50 +277,113 @@ elif page == "🏗️ Site Data Entry":
     if not df_display.empty:
         df_filtered = df_display.copy()
         if search: df_filtered = df_filtered[df_filtered.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
-        
         st.subheader("📋 Complete Site Database")
         edit_sel = st.selectbox("🎯 Select Project ID to EDIT", ["None"] + df_filtered['project_id'].tolist())
         if edit_sel != "None":
             edit_row = df_raw[df_raw['project_id'] == edit_sel].iloc[0].to_dict()
             if st.button("🛠️ Open Systematic Editor"):
                 open_popup_form(edit_row)
-        
         st.dataframe(df_filtered.drop(columns=['id'], errors='ignore'), use_container_width=True)
 
-# --- 8. FINANCE LEDGER ---
+# --- 8. FINANCE LEDGER (RESTORED FROM OLD CODE) ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
-    pay_type = st.radio("Payment Type", ["Payment Received", "Payment Paid"], horizontal=True)
+    pay_type = st.radio("Select Payment Type", ["Payment Received", "Payment Paid"], horizontal=True, key="pay_type")
+    
     s_res = supabase.table("site_data").select("project_id", "received_amt", "team_paid_amt", "team_billing").execute()
     projects = ["None"] + [s['project_id'] for s in s_res.data] if s_res.data else ["None"]
+    
+    f_all_res = supabase.table("finance").select("*").order("transaction_date", desc=True).execute()
+    df_finance = pd.DataFrame(f_all_res.data) if f_all_res.data else pd.DataFrame()
 
     if pay_type == "Payment Received":
-        with st.form("recv_form"):
-            f_client = st.text_input("From Client")
-            f_amt = st.number_input("Amount", value=None, placeholder="Enter amount")
-            f_project = st.selectbox("Project ID", projects)
-            if st.form_submit_button("Submit"):
-                if f_amt and f_amt > 0:
-                    supabase.table("finance").insert({"received_from": f_client, "received_amt": f_amt}).execute()
-                    st.success("Recorded")
-                    st.rerun()
-    else:
-        with st.form("paid_form"):
-            p_team = st.text_input("To Team")
-            p_amt = st.number_input("Amount", value=None, placeholder="Enter amount")
-            p_project = st.selectbox("Project ID", projects)
-            if st.form_submit_button("Submit"):
-                if p_amt:
-                    supabase.table("finance").insert({"received_from": p_team, "paid_amount": p_amt}).execute()
-                    st.success("Recorded")
-                    st.rerun()
+        c_res = supabase.table("client_master").select("client_name").execute()
+        master_clients = [c['client_name'] for c in c_res.data] if c_res.data else []
+        combined = set(master_clients + ["Dilip Mundada", "Indus Towers Ltd."])
+        clients = ["Select"] + sorted(list(combined))
 
-# --- 9. TEAM LEDGER ---
+        f_client = st.selectbox("Received From (Client)", clients)
+        f_date = st.date_input("Date", datetime.now())
+        f_amt = st.number_input("Received Amt", value=None)
+        f_project = "None"
+        if f_client == "Indus Towers Ltd.": f_project = st.selectbox("Project ID", projects)
+        
+        if st.button("🚀 Submit Received Payment"):
+            if f_client != "Select" and f_amt is not None:
+                finance_data = {"received_from": f_client, "transaction_date": str(f_date), "received_amt": float(f_amt)}
+                try:
+                    supabase.table("finance").insert(finance_data).execute()
+                    if f_client == "Indus Towers Ltd." and f_project != "None":
+                        current_row = next((item for item in s_res.data if item["project_id"] == f_project), None)
+                        old_amt = float(current_row['received_amt']) if current_row and current_row['received_amt'] else 0.0
+                        supabase.table("site_data").update({"received_amt": old_amt + float(f_amt)}).eq("project_id", f_project).execute()
+                    st.success("Finance Ledger Updated!")
+                    st.rerun()
+                except Exception as e: st.error(f"Error: {e}")
+            else: st.error("Please fill all required fields.")
+
+        st.divider()
+        st.subheader("📜 Received Payments Table")
+        if not df_finance.empty:
+            df_recv = df_finance[df_finance['received_amt'] > 0].copy()
+            if not df_recv.empty:
+                cols_to_show = ['received_from', 'transaction_date', 'received_amt', 'created_at']
+                st.dataframe(df_recv[[c for c in cols_to_show if c in df_recv.columns]], use_container_width=True)
+
+    else:
+        t_master_res = supabase.table("team_master").select("team_name").execute()
+        teams_list = ["Select"] + [t['team_name'] for t in t_master_res.data] if t_master_res.data else ["Select"]
+        p_team = st.selectbox("Paid To (Team Name)", teams_list)
+        p_project = st.selectbox("Project ID", projects)
+        
+        if p_project != "None":
+            site_info = next((item for item in s_res.data if item["project_id"] == p_project), None)
+            if site_info:
+                billing = float(site_info['team_billing']) if site_info['team_billing'] else 0.0
+                paid = float(site_info['team_paid_amt']) if site_info['team_paid_amt'] else 0.0
+                st.markdown(f"<div class='balance-box'><h3 style='color: #dc2626; margin:0;'>Current Team Balance: ₹ {billing - paid:,.0f}</h3></div>", unsafe_allow_html=True)
+
+        p_date = st.date_input("Date", datetime.now())
+        p_amt = st.number_input("Paid Amt", value=None)
+        
+        if st.button("🚀 Submit Paid Payment"):
+            if p_team != "Select" and p_amt is not None and p_project != "None":
+                finance_data = {"received_from": p_team, "transaction_date": str(p_date), "paid_amount": float(p_amt)}
+                try:
+                    supabase.table("finance").insert(finance_data).execute()
+                    current_row = next((item for item in s_res.data if item["project_id"] == p_project), None)
+                    old_paid = float(current_row['team_paid_amt']) if current_row and current_row['team_paid_amt'] else 0.0
+                    supabase.table("site_data").update({"team_paid_amt": old_paid + float(p_amt)}).eq("project_id", p_project).execute()
+                    st.success(f"Payment recorded and Site Data Updated!")
+                    st.rerun()
+                except Exception as e: st.error(f"Error: {e}")
+            else: st.error("Team Name, Amount, and Project ID are mandatory.")
+
+        st.divider()
+        st.subheader("📜 Paid Payments Table")
+        if not df_finance.empty:
+            if 'paid_amount' in df_finance.columns:
+                df_paid = df_finance[df_finance['paid_amount'] > 0].copy()
+                if not df_paid.empty:
+                    cols_to_show = ['received_from', 'transaction_date', 'paid_amount', 'created_at']
+                    st.dataframe(df_paid[[c for c in cols_to_show if c in df_paid.columns]], use_container_width=True)
+
+# --- 9. TEAM LEDGER (RESTORED FROM OLD CODE) ---
 elif page == "👥 Team Ledger":
-    st.markdown("<h1>👥 Team Ledger</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>👥 Team Wise Billing & Balance</h1>", unsafe_allow_html=True)
     s_res = supabase.table("site_data").select("team_name", "team_billing", "team_paid_amt").execute()
     if s_res.data:
         df = pd.DataFrame(s_res.data)
-        team_df = df.groupby('team_name').sum().reset_index()
-        team_df['Balance'] = team_df['team_paid_amt'] - team_df['team_billing']
+        df['team_name'] = df['team_name'].fillna("Unassigned").replace("", "Unassigned")
+        df['team_billing'] = pd.to_numeric(df['team_billing']).fillna(0)
+        df['team_paid_amt'] = pd.to_numeric(df['team_paid_amt']).fillna(0)
+        team_df = df.groupby('team_name', as_index=False).sum()
+        team_df['Balance Amount (₹)'] = team_df['team_billing'] - team_df['team_paid_amt']
+        team_df = team_df[team_df['team_name'] != 'Select']
+        team_df = team_df.rename(columns={'team_name': 'Team Name', 'team_billing': 'Total Billing (₹)', 'team_paid_amt': 'Total Paid (₹)'})
         st.dataframe(team_df, use_container_width=True)
+        st.divider()
+        st.markdown("### 📊 Download Report")
+        st.download_button("📥 Download Excel", data=to_excel(team_df), file_name="Team_Wise_Report.xlsx")
+    else:
+        st.info("No data available to display team ledger.")
