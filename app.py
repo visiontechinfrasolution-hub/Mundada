@@ -130,7 +130,7 @@ elif page == "📝 Master Registration":
                         st.rerun()
                     except Exception as e: st.error(f"Error: {e}")
 
-# --- 7. SITE DATA ENTRY (FIXED BLANK FIELDS & RULES) ---
+# --- 7. SITE DATA ENTRY (FORCED CALCULATION FIX) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
@@ -144,62 +144,60 @@ elif page == "🏗️ Site Data Entry":
         p_master = supabase.table("project_master").select("project_name").execute()
         projects_master_list = ["Select"] + [p['project_name'] for p in p_master.data] if p_master.data else ["Select"]
 
-        with st.form("popup_site_form", border=False):
-            st.markdown('<div class="section-header">📍 1. Site Details</div>', unsafe_allow_html=True)
-            sc1, sc2, sc3 = st.columns(3)
-            p_val = er.get('project_name', 'Select')
-            sel_project = sc1.selectbox("Project", projects_master_list, index=projects_master_list.index(p_val) if p_val in projects_master_list else 0)
-            p_id = sc2.text_input("Project ID (Must be Unique) *", value=str(er.get('project_id', '')))
-            s_id = sc3.text_input("Site ID", value=str(er.get('site_id', '')))
-            
-            sc4, sc5, sc6 = st.columns(3)
-            s_nm = sc4.text_input("Site Name", value=str(er.get('site_name', '')))
-            cluster = sc5.text_input("Cluster", value=str(er.get('cluster', '')))
-            po_n = sc6.text_input("PO Number", value=str(er.get('po_no', '')))
-            
-            # Placeholder and value=None ensures it stays blank
-            p_amt = st.number_input("Projected Amount", value=float(er['project_amt']) if is_editing else None, placeholder="Enter amount")
+        # Note: Form borders removed to allow live calculations inside dialog
+        st.markdown('<div class="section-header">📍 1. Site Details</div>', unsafe_allow_html=True)
+        sc1, sc2, sc3 = st.columns(3)
+        p_val = er.get('project_name', 'Select')
+        sel_project = sc1.selectbox("Project", projects_master_list, index=projects_master_list.index(p_val) if p_val in projects_master_list else 0)
+        p_id = sc2.text_input("Project ID (Must be Unique) *", value=str(er.get('project_id', '')))
+        s_id = sc3.text_input("Site ID", value=str(er.get('site_id', '')))
+        
+        sc4, sc5, sc6 = st.columns(3)
+        s_nm = sc4.text_input("Site Name", value=str(er.get('site_name', '')))
+        cluster = sc5.text_input("Cluster", value=str(er.get('cluster', '')))
+        po_n = sc6.text_input("PO Number", value=str(er.get('po_no', '')))
+        p_amt = st.number_input("Projected Amount", value=float(er['project_amt']) if is_editing and er.get('project_amt') is not None else None, placeholder="Enter amount")
 
-            st.markdown('<div class="section-header">👥 2. Team Details</div>', unsafe_allow_html=True)
-            tc1, tc2 = st.columns(2)
-            t_name_val = er.get('team_name', 'Select')
-            t_name = tc1.selectbox("Team Name", teams_list, index=teams_list.index(t_name_val) if t_name_val in teams_list else 0)
-            st_list = ["Select", "Pending", "Yet to Start", "WIP", "Completed"]
-            status_val = er.get('site_status', 'Select')
-            status = tc2.selectbox("Site Status", st_list, index=st_list.index(status_val) if status_val in st_list else 0)
-            
-            tc3, tc4 = st.columns(2)
-            t_bill = tc3.number_input("Team Billing", value=float(er['team_billing']) if is_editing else None, placeholder="Enter amount")
-            t_paid = tc4.number_input("Team Paid Amount", value=float(er['team_paid_amt']) if is_editing else None, placeholder="Enter amount")
-            
-            # Rule 2: Team Balance = Paid - Billing
-            calc_t_bill = t_bill if t_bill is not None else 0.0
-            calc_t_paid = t_paid if t_paid is not None else 0.0
-            st.markdown(f"<div class='balance-box'>Team Balance (Auto-calculated): ₹ {calc_t_paid - calc_t_bill:,.2f}</div>", unsafe_allow_html=True)
+        st.markdown('<div class="section-header">👥 2. Team Details</div>', unsafe_allow_html=True)
+        tc1, tc2 = st.columns(2)
+        t_name_val = er.get('team_name', 'Select')
+        t_name = tc1.selectbox("Team Name", teams_list, index=teams_list.index(t_name_val) if t_name_val in teams_list else 0)
+        st_list = ["Select", "Pending", "Yet to Start", "WIP", "Completed"]
+        status_val = er.get('site_status', 'Select')
+        status = tc2.selectbox("Site Status", st_list, index=st_list.index(status_val) if status_val in st_list else 0)
+        
+        tc3, tc4 = st.columns(2)
+        t_bill = tc3.number_input("Team Billing", value=float(er['team_billing']) if is_editing and er.get('team_billing') is not None else None, placeholder="Enter amount")
+        t_paid = tc4.number_input("Team Paid Amount", value=float(er['team_paid_amt']) if is_editing and er.get('team_paid_amt') is not None else None, placeholder="Enter amount")
+        
+        # Live Team Balance Calculation
+        calc_t_bill = t_bill if t_bill is not None else 0.0
+        calc_t_paid = t_paid if t_paid is not None else 0.0
+        st.markdown(f"<div class='balance-box'>Team Balance (Auto-calculated): ₹ {calc_t_paid - calc_t_bill:,.2f}</div>", unsafe_allow_html=True)
 
-            st.markdown('<div class="section-header">📄 3. VIS Billing Details</div>', unsafe_allow_html=True)
-            vc1, vc2 = st.columns(2)
-            wcc_n = vc1.text_input("VIS Invoice No.", value=str(er.get('wcc_no', '')))
-            r_amt = vc2.number_input("VIS Received Amt", value=float(er['received_amt']) if is_editing else None, placeholder="Enter amount")
-            
-            wcc_a = st.number_input("VIS Bill Amount", value=float(er['wcc_amt']) if is_editing else None, placeholder="Enter amount")
-            
-            # Rule 3: VIS Balance = Bill - Received
-            calc_wcc_a = wcc_a if wcc_a is not None else 0.0
-            calc_r_amt = r_amt if r_amt is not None else 0.0
-            st.markdown(f"<div class='balance-box'>VIS Balance (Auto-calculated): ₹ {calc_wcc_a - calc_r_amt:,.2f}</div>", unsafe_allow_html=True)
-            
-            if st.form_submit_button("🚀 Save Project Data", use_container_width=True):
-                data = {
-                    "project_name": None if sel_project == "Select" else sel_project,
-                    "project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, 
-                    "site_status": None if status == "Select" else status, "project_amt": p_amt or 0, "po_no": po_n, 
-                    "team_name": None if t_name == "Select" else t_name, "team_billing": t_bill or 0, 
-                    "team_paid_amt": t_paid or 0, "wcc_no": wcc_n, "wcc_amt": wcc_a or 0, "received_amt": r_amt or 0
-                }
-                if is_editing: supabase.table("site_data").update(data).eq('id', er['id']).execute()
-                else: supabase.table("site_data").insert(data).execute()
-                st.rerun()
+        st.markdown('<div class="section-header">📄 3. VIS Billing Details</div>', unsafe_allow_html=True)
+        vc1, vc2 = st.columns(2)
+        wcc_n = vc1.text_input("VIS Invoice No.", value=str(er.get('wcc_no', '')))
+        r_amt = vc2.number_input("VIS Received Amt", value=float(er['received_amt']) if is_editing and er.get('received_amt') is not None else None, placeholder="Enter amount")
+        
+        wcc_a = st.number_input("VIS Bill Amount", value=float(er['wcc_amt']) if is_editing and er.get('wcc_amt') is not None else None, placeholder="Enter amount")
+        
+        # Live VIS Balance Calculation
+        calc_wcc_a = wcc_a if wcc_a is not None else 0.0
+        calc_r_amt = r_amt if r_amt is not None else 0.0
+        st.markdown(f"<div class='balance-box'>VIS Balance (Auto-calculated): ₹ {calc_wcc_a - calc_r_amt:,.2f}</div>", unsafe_allow_html=True)
+        
+        if st.button("🚀 Save Project Data", use_container_width=True):
+            data = {
+                "project_name": None if sel_project == "Select" else sel_project,
+                "project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, 
+                "site_status": None if status == "Select" else status, "project_amt": p_amt or 0, "po_no": po_n, 
+                "team_name": None if t_name == "Select" else t_name, "team_billing": t_bill or 0, 
+                "team_paid_amt": t_paid or 0, "wcc_no": wcc_n, "wcc_amt": wcc_a or 0, "received_amt": r_amt or 0
+            }
+            if is_editing: supabase.table("site_data").update(data).eq('id', er['id']).execute()
+            else: supabase.table("site_data").insert(data).execute()
+            st.rerun()
 
     res = supabase.table("site_data").select("*").execute()
     df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
