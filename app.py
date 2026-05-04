@@ -189,7 +189,7 @@ elif page == "📝 Master Registration":
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
-# --- 7. SITE DATA ENTRY (ERROR FIXED: NAN SAFETY IN JSON) ---
+# --- 7. SITE DATA ENTRY (88% AUTO CALC ADDED) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
@@ -217,7 +217,13 @@ elif page == "🏗️ Site Data Entry":
         
         pa1, pa2 = st.columns(2)
         po_a = pa1.number_input("PO Amount", value=float(er.get('po_amt', 0.0)) if is_editing and er.get('po_amt') is not None else 0.0)
-        p_amt = pa2.number_input("Projected Amount", value=float(er.get('project_amt', 0.0)) if is_editing and er.get('project_amt') is not None else 0.0)
+        
+        # LOGIC: Auto-calc 88% if PO Amount is provided, else manual or existing value
+        auto_proj_val = float(er.get('project_amt', 0.0)) if is_editing else 0.0
+        if po_a > 0:
+            auto_proj_val = round(po_a * 0.88, 2)
+            
+        p_amt = pa2.number_input("Projected Amount", value=auto_proj_val)
         
         w_desc = st.text_area("Work Description", value=str(er.get('work_description', '')), placeholder="Enter full work details here...")
 
@@ -249,7 +255,6 @@ elif page == "🏗️ Site Data Entry":
         st.markdown(f"<div class='balance-box'>VIS Balance (Auto-calculated): ₹ {calc_wcc_a - calc_r_amt:,.2f}</div>", unsafe_allow_html=True)
         
         if st.button("🚀 SAVE PROJECT DATA", use_container_width=True):
-            # Error Fix logic: Replace potential NaN/None with 0 for database compliance
             def clean_num(val):
                 try: return float(val) if (val is not None and not pd.isna(val)) else 0.0
                 except: return 0.0
