@@ -21,22 +21,22 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap');
     html, body, [class*="st-"] { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
     
-    /* Dark Borders for all Text/Select/TextArea boxes */
-    .stTextInput>div>div>input, .stSelectbox>div>div>div, .stTextArea>div>div>textarea {
+    /* UNIVERSAL DARK BORDER FOR ALL INPUTS */
+    div[data-baseweb="input"], div[data-baseweb="select"], div[data-baseweb="textarea"], .stNumberInput div {
         border: 2px solid #1e293b !important;
         border-radius: 8px !important;
-        color: #0f172a !important;
-        font-weight: 600 !important;
     }
 
-    /* RED DARK BORDER for Amount (Number Input) Fields */
-    .stNumberInput>div>div {
+    /* SPECIFIC DARK BORDER FOR NUMBER INPUTS (RED DARK) */
+    div[data-testid="stNumberInput"] div[data-baseweb="input"] {
         border: 2px solid #b91c1c !important;
         border-radius: 8px !important;
     }
-    .stNumberInput input {
-        color: #b91c1c !important;
-        font-weight: 700 !important;
+
+    /* Dark text for visibility */
+    input, textarea, div[role="button"] {
+        color: #0f172a !important;
+        font-weight: 600 !important;
     }
 
     /* Systematic Popup Styling */
@@ -152,7 +152,7 @@ elif page == "📝 Master Registration":
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
-# --- 7. SITE DATA ENTRY (ATTRACTIVE UI WITH DARK BORDERS) ---
+# --- 7. SITE DATA ENTRY (FORCED CALCULATION FIX & NEW LAYOUT) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
