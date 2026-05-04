@@ -13,48 +13,49 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "openpyxl"])
     import openpyxl
 
-# --- 1. PAGE CONFIG & LAVISH STYLE ---
+# --- 1. PAGE CONFIG & ATTRACTIVE COLORFUL STYLE ---
 st.set_page_config(page_title="Visiontech Mundada", page_icon="💎", layout="wide")
 
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap');
-    html, body, [class*="st-"] { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #ffffff; }
+    html, body, [class*="st-"] { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
     
+    /* Dark Borders for all Input Boxes */
+    .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>div, .stTextArea>div>div>textarea {
+        border: 2px solid #1e293b !important;
+        border-radius: 8px !important;
+        color: #0f172a !important;
+        font-weight: 600 !important;
+    }
+
     /* Systematic Popup Styling */
     div[data-testid="stDialog"] div[role="dialog"] {
         border-radius: 20px;
         padding: 20px;
+        background-color: #ffffff;
+        border: 3px solid #0ea5e9;
     }
 
     /* Add New Site Button (Red Style) */
     .stButton > button[key="add_new_btn"] {
-        background-color: #ff4b4b !important;
+        background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%) !important;
         color: white !important;
         border-radius: 10px !important;
         padding: 10px 24px !important;
-        font-weight: 700 !important;
+        font-weight: 800 !important;
         border: none !important;
-        width: auto !important;
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
     }
 
-    /* Systematic Upload Box Styling */
-    .upload-container {
-        background-color: #f0f2f6;
-        border-radius: 12px;
-        padding: 15px;
-        border: 1px solid #e6e9ef;
-    }
+    /* Section Headers - Colorful */
+    .section-header-1 { color: #0284c7; font-weight: 800; margin-top: 20px; font-size: 1.3rem; border-left: 5px solid #0284c7; padding-left: 10px; background: #f0f9ff; }
+    .section-header-2 { color: #7c3aed; font-weight: 800; margin-top: 20px; font-size: 1.3rem; border-left: 5px solid #7c3aed; padding-left: 10px; background: #f5f3ff; }
+    .section-header-3 { color: #059669; font-weight: 800; margin-top: 20px; font-size: 1.3rem; border-left: 5px solid #059669; padding-left: 10px; background: #ecfdf5; }
     
-    /* Metrics and Form Elements */
-    div[data-testid="stMetric"] { background: #ffffff; border-radius: 15px; padding: 20px; border-left: 5px solid #0ea5e9; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); }
-    .balance-box { padding: 12px; border-radius: 10px; background-color: #eff6ff; color: #1e40af; font-weight: 600; margin-bottom: 15px; }
-    .section-header { color: #1e293b; font-weight: 700; margin: 20px 0 10px 0; font-size: 1.1rem; }
+    .balance-box { padding: 12px; border-radius: 10px; background-color: #1e293b; color: #ffffff; font-weight: 700; margin-top: 15px; border: 2px solid #0ea5e9; text-align: center; }
     
-    /* Systematic spacing for form */
-    div.stNumberInput, div.stTextInput, div.stSelectbox {
-        margin-bottom: -10px;
-    }
+    div[data-testid="stMetric"] { background: #ffffff; border-radius: 15px; padding: 20px; border: 2px solid #e2e8f0; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); }
     </style>
     """, unsafe_allow_html=True)
 
@@ -99,11 +100,10 @@ if page == "🏠 Dashboard":
             c2_3.metric("Total Team Balance", f"₹ {t_paid - t_bill:,.0f}")
     except: st.info("Dashboard loading...")
 
-# --- 6. MASTER REGISTRATION (TABLES RESTORED) ---
+# --- 6. MASTER REGISTRATION ---
 elif page == "📝 Master Registration":
     st.markdown("<h1>📋 Master Registry</h1>", unsafe_allow_html=True)
     tab1, tab2, tab3 = st.tabs(["👥 Clients", "🛠️ Teams", "📁 Projects"])
-    
     with tab1:
         with st.form("cl_reg"):
             cn = st.text_input("Client Name")
@@ -113,10 +113,8 @@ elif page == "📝 Master Registration":
                     st.success("Saved")
                     st.rerun()
         st.divider()
-        st.subheader("👥 Registered Clients List")
         c_res = supabase.table("client_master").select("*").execute()
         if c_res.data: st.dataframe(pd.DataFrame(c_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
-
     with tab2:
         with st.form("tm_reg"):
             tn, tl = st.text_input("Team Name"), st.text_input("Leader Name")
@@ -126,10 +124,8 @@ elif page == "📝 Master Registration":
                     st.success("Saved")
                     st.rerun()
         st.divider()
-        st.subheader("🛠️ Registered Teams List")
         t_res = supabase.table("team_master").select("*").execute()
         if t_res.data: st.dataframe(pd.DataFrame(t_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
-
     with tab3:
         with st.form("pr_reg"):
             pn = st.text_input("Project Name")
@@ -141,13 +137,12 @@ elif page == "📝 Master Registration":
                         st.rerun()
                     except Exception as e: st.error(f"Error: {e}")
         st.divider()
-        st.subheader("📁 Registered Projects List")
         try:
             p_res = supabase.table("project_master").select("*").execute()
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
-# --- 7. SITE DATA ENTRY (FORCED CALCULATION FIX) ---
+# --- 7. SITE DATA ENTRY (FORCED CALCULATION FIX & NEW LAYOUT) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
@@ -161,7 +156,7 @@ elif page == "🏗️ Site Data Entry":
         p_master = supabase.table("project_master").select("project_name").execute()
         projects_master_list = ["Select"] + [p['project_name'] for p in p_master.data] if p_master.data else ["Select"]
 
-        st.markdown('<div class="section-header">📍 1. Site Details</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header-1">📍 1. Site Details</div>', unsafe_allow_html=True)
         sc1, sc2, sc3 = st.columns(3)
         p_val = er.get('project_name', 'Select')
         sel_project = sc1.selectbox("Project", projects_master_list, index=projects_master_list.index(p_val) if p_val in projects_master_list else 0)
@@ -172,9 +167,12 @@ elif page == "🏗️ Site Data Entry":
         s_nm = sc4.text_input("Site Name", value=str(er.get('site_name', '')))
         cluster = sc5.text_input("Cluster", value=str(er.get('cluster', '')))
         po_n = sc6.text_input("PO Number", value=str(er.get('po_no', '')))
+        
+        # New order: Projected Amount then Work Description
         p_amt = st.number_input("Projected Amount", value=float(er['project_amt']) if is_editing and er.get('project_amt') is not None else None, placeholder="Enter amount")
+        w_desc = st.text_area("Work Description", value=str(er.get('work_description', '')), placeholder="Enter full work details here...")
 
-        st.markdown('<div class="section-header">👥 2. Team Details</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header-2">👥 2. Team Details</div>', unsafe_allow_html=True)
         tc1, tc2 = st.columns(2)
         t_name_val = er.get('team_name', 'Select')
         t_name = tc1.selectbox("Team Name", teams_list, index=teams_list.index(t_name_val) if t_name_val in teams_list else 0)
@@ -190,7 +188,7 @@ elif page == "🏗️ Site Data Entry":
         calc_t_paid = t_paid if t_paid is not None else 0.0
         st.markdown(f"<div class='balance-box'>Team Balance (Auto-calculated): ₹ {calc_t_paid - calc_t_bill:,.2f}</div>", unsafe_allow_html=True)
 
-        st.markdown('<div class="section-header">📄 3. VIS Billing Details</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header-3">📄 3. VIS Billing Details</div>', unsafe_allow_html=True)
         vc1, vc2 = st.columns(2)
         wcc_n = vc1.text_input("VIS Invoice No.", value=str(er.get('wcc_no', '')))
         r_amt = vc2.number_input("VIS Received Amt", value=float(er['received_amt']) if is_editing and er.get('received_amt') is not None else None, placeholder="Enter amount")
@@ -201,22 +199,30 @@ elif page == "🏗️ Site Data Entry":
         calc_r_amt = r_amt if r_amt is not None else 0.0
         st.markdown(f"<div class='balance-box'>VIS Balance (Auto-calculated): ₹ {calc_wcc_a - calc_r_amt:,.2f}</div>", unsafe_allow_html=True)
         
-        if st.button("🚀 Save Project Data", use_container_width=True):
+        st.write("")
+        if st.button("🚀 SAVE PROJECT DATA", use_container_width=True):
             data = {
                 "project_name": None if sel_project == "Select" else sel_project,
                 "project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, 
                 "site_status": None if status == "Select" else status, "project_amt": p_amt or 0, "po_no": po_n, 
                 "team_name": None if t_name == "Select" else t_name, "team_billing": t_bill or 0, 
-                "team_paid_amt": t_paid or 0, "wcc_no": wcc_n, "wcc_amt": wcc_a or 0, "received_amt": r_amt or 0
+                "team_paid_amt": t_paid or 0, "wcc_no": wcc_n, "wcc_amt": wcc_a or 0, "received_amt": r_amt or 0,
+                "work_description": w_desc
             }
             if is_editing: supabase.table("site_data").update(data).eq('id', er['id']).execute()
             else: supabase.table("site_data").insert(data).execute()
             st.rerun()
 
+    # ACTION BAR
     res = supabase.table("site_data").select("*").execute()
     df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
-    c_add, c_down, c_up, c_search = st.columns([1.2, 1.2, 2.3, 2.5])
+    
+    # Adjusting Column order for table: Project Name 1st
+    if not df.empty:
+        cols = ['project_name'] + [c for c in df.columns if c not in ['project_name', 'id']]
+        df = df[cols]
 
+    c_add, c_down, c_up, c_search = st.columns([1.2, 1.2, 2.3, 2.5])
     with c_add:
         if st.button("➕ Add New Site", key="add_new_btn"):
             open_popup_form()
@@ -225,7 +231,6 @@ elif page == "🏗️ Site Data Entry":
         if not df.empty: st.download_button("📥 Excel Download", data=to_excel(df), file_name="Site_Data.xlsx", use_container_width=True)
 
     with c_up:
-        st.markdown('<div class="upload-container">', unsafe_allow_html=True)
         uploaded_file = st.file_uploader("Upload XLSX", type=['xlsx'], label_visibility="collapsed")
         if uploaded_file:
             if st.button("Confirm Bulk Upload", use_container_width=True):
@@ -238,10 +243,8 @@ elif page == "🏗️ Site Data Entry":
                     st.success("Uploaded!")
                     st.rerun()
                 except Exception as e: st.error(f"Error: {e}")
-        st.markdown('</div>', unsafe_allow_html=True)
 
-    with c_search:
-        search = st.text_input("🔍 Search Database...", placeholder="Search Site ID, Project ID...")
+    search = c_search.text_input("🔍 Search Database...", placeholder="Search Project, Site ID...")
 
     st.divider()
     if not df.empty:
@@ -252,7 +255,7 @@ elif page == "🏗️ Site Data Entry":
             edit_row = df[df['project_id'] == edit_sel].iloc[0].to_dict()
             if st.button("🛠️ Open Systematic Editor"):
                 open_popup_form(edit_row)
-        st.dataframe(df.drop(columns=['id']), use_container_width=True)
+        st.dataframe(df, use_container_width=True)
 
 # --- 8. FINANCE LEDGER ---
 elif page == "💸 Finance Ledger":
