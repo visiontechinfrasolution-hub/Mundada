@@ -86,7 +86,7 @@ with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #0f172a;'>MUNDADA</h1>", unsafe_allow_html=True)
     st.divider()
     page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger", "👥 Team Ledger"], key="nav_page")
-    st.info(f"User: Mayur Patil\nDate: 29-Apr-2026")
+    st.info(f"User: Mayur Patil\nDate: 04-May-2026")
 
 # --- 5. DASHBOARD ---
 if page == "🏠 Dashboard":
@@ -138,7 +138,7 @@ elif page == "📝 Master Registration":
                     st.success("Saved")
                     st.rerun()
         st.divider()
-        c_res = supabase.table("client_master").select("*").order("id", desc=True).execute()
+        c_res = supabase.table("client_master").select("*").order("created_at", desc=True).execute()
         if c_res.data: st.dataframe(pd.DataFrame(c_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
     with tab2:
         with st.form("tm_reg"):
@@ -149,7 +149,7 @@ elif page == "📝 Master Registration":
                     st.success("Saved")
                     st.rerun()
         st.divider()
-        t_res = supabase.table("team_master").select("*").order("id", desc=True).execute()
+        t_res = supabase.table("team_master").select("*").order("created_at", desc=True).execute()
         if t_res.data: st.dataframe(pd.DataFrame(t_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
     with tab3:
         with st.form("pr_reg"):
@@ -163,7 +163,7 @@ elif page == "📝 Master Registration":
                     except Exception as e: st.error(f"Error: {e}")
         st.divider()
         try:
-            p_res = supabase.table("project_master").select("*").order("id", desc=True).execute()
+            p_res = supabase.table("project_master").select("*").order("created_at", desc=True).execute()
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
@@ -237,8 +237,8 @@ elif page == "🏗️ Site Data Entry":
             else: supabase.table("site_data").insert(data).execute()
             st.rerun()
 
-    # Fetch with Descending Order
-    res = supabase.table("site_data").select("*").order("id", desc=True).execute()
+    # Fetch with Descending Order by created_at to ensure latest entry is 1st row
+    res = supabase.table("site_data").select("*").order("created_at", desc=True).execute()
     df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     
     if not df_raw.empty:
@@ -292,7 +292,7 @@ elif page == "💸 Finance Ledger":
     s_res = supabase.table("site_data").select("project_id", "received_amt", "team_paid_amt", "team_billing").execute()
     projects = ["None"] + [s['project_id'] for s in s_res.data] if s_res.data else ["None"]
     
-    f_all_res = supabase.table("finance").select("*").order("transaction_date", desc=True).order("created_at", desc=True).execute()
+    f_all_res = supabase.table("finance").select("*").order("created_at", desc=True).execute()
     df_finance = pd.DataFrame(f_all_res.data) if f_all_res.data else pd.DataFrame()
 
     if pay_type == "Payment Received":
