@@ -142,7 +142,7 @@ elif page == "📝 Master Registration":
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
-# --- 7. SITE DATA ENTRY (FORCED CALCULATION FIX & NEW LAYOUT) ---
+# --- 7. SITE DATA ENTRY (KEYERROR & TABLE COLUMN FIX) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
@@ -168,7 +168,6 @@ elif page == "🏗️ Site Data Entry":
         cluster = sc5.text_input("Cluster", value=str(er.get('cluster', '')))
         po_n = sc6.text_input("PO Number", value=str(er.get('po_no', '')))
         
-        # New order: Projected Amount then Work Description
         p_amt = st.number_input("Projected Amount", value=float(er['project_amt']) if is_editing and er.get('project_amt') is not None else None, placeholder="Enter amount")
         w_desc = st.text_area("Work Description", value=str(er.get('work_description', '')), placeholder="Enter full work details here...")
 
@@ -215,12 +214,14 @@ elif page == "🏗️ Site Data Entry":
 
     # ACTION BAR
     res = supabase.table("site_data").select("*").execute()
-    df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
+    df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     
-    # Adjusting Column order for table: Project Name 1st
-    if not df.empty:
-        cols = ['project_name'] + [c for c in df.columns if c not in ['project_name', 'id']]
-        df = df[cols]
+    # Logic for display: Project Name 1st but KEEP id column hidden in st.session_state
+    if not df_raw.empty:
+        cols_order = ['project_name'] + [c for c in df_raw.columns if c not in ['project_name', 'id']] + ['id']
+        df_display = df_raw[cols_order]
+    else:
+        df_display = df_raw
 
     c_add, c_down, c_up, c_search = st.columns([1.2, 1.2, 2.3, 2.5])
     with c_add:
@@ -228,7 +229,7 @@ elif page == "🏗️ Site Data Entry":
             open_popup_form()
 
     with c_down:
-        if not df.empty: st.download_button("📥 Excel Download", data=to_excel(df), file_name="Site_Data.xlsx", use_container_width=True)
+        if not df_display.empty: st.download_button("📥 Excel Download", data=to_excel(df_display.drop(columns=['id'], errors='ignore')), file_name="Site_Data.xlsx", use_container_width=True)
 
     with c_up:
         uploaded_file = st.file_uploader("Upload XLSX", type=['xlsx'], label_visibility="collapsed")
@@ -247,15 +248,20 @@ elif page == "🏗️ Site Data Entry":
     search = c_search.text_input("🔍 Search Database...", placeholder="Search Project, Site ID...")
 
     st.divider()
-    if not df.empty:
-        if search: df = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+    if not df_display.empty:
+        df_filtered = df_display.copy()
+        if search: df_filtered = df_filtered[df_filtered.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+        
         st.subheader("📋 Complete Site Database")
-        edit_sel = st.selectbox("🎯 Select Project ID to EDIT", ["None"] + df['project_id'].tolist())
+        edit_sel = st.selectbox("🎯 Select Project ID to EDIT", ["None"] + df_filtered['project_id'].tolist())
         if edit_sel != "None":
-            edit_row = df[df['project_id'] == edit_sel].iloc[0].to_dict()
+            # Finding exact record from raw data to ensure 'id' is present
+            edit_row = df_raw[df_raw['project_id'] == edit_sel].iloc[0].to_dict()
             if st.button("🛠️ Open Systematic Editor"):
                 open_popup_form(edit_row)
-        st.dataframe(df, use_container_width=True)
+        
+        # Displaying table without 'id'
+        st.dataframe(df_filtered.drop(columns=['id'], errors='ignore'), use_container_width=True)
 
 # --- 8. FINANCE LEDGER ---
 elif page == "💸 Finance Ledger":
