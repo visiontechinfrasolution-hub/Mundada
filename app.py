@@ -116,7 +116,6 @@ st.markdown("""
     
     div[data-testid="stMetric"] { background: #ffffff; border-radius: 15px; padding: 20px; border: 2px solid #e2e8f0; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); }
 
-    /* Bulk Report Card */
     .bulk-report { background: #ffffff; padding: 20px; border-radius: 15px; border: 2px solid #e2e8f0; margin-bottom: 20px; }
     .report-line { font-size: 1.1rem; font-weight: 600; margin-bottom: 5px; }
     </style>
@@ -209,7 +208,7 @@ elif page == "📝 Master Registration":
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
-# --- 7. SITE DATA ENTRY (BULK REPORT & DUPLICATE BLOCKING) ---
+# --- 7. SITE DATA ENTRY (DUPLICATE PROJECT ID FILTERING) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
@@ -270,10 +269,10 @@ elif page == "🏗️ Site Data Entry":
                 try: return float(val) if (val is not None and not pd.isna(val)) else 0.0
                 except: return 0.0
 
-            # Duplicate Project ID Check
+            # Only Block if Project ID is duplicate
             check = supabase.table("site_data").select("project_id").eq("project_id", p_id).execute()
             if not is_editing and check.data:
-                st.error(f"❌ Project ID {p_id} already exists!")
+                st.error(f"❌ Project ID {p_id} already exists in the database!")
                 return
 
             data = {
@@ -319,11 +318,14 @@ elif page == "🏗️ Site Data Entry":
                     success_count = 0
                     duplicate_count = 0
                     
-                    existing_pids = set(df_raw['project_id'].tolist()) if not df_raw.empty else set()
+                    # Get fresh list of existing project IDs
+                    current_db = supabase.table("site_data").select("project_id").execute()
+                    existing_pids = set(p['project_id'] for p in current_db.data) if current_db.data else set()
                     
                     records_to_insert = []
                     for row in df_up.to_dict(orient="records"):
                         pid = str(row.get('project_id'))
+                        # ONLY check project_id for duplicates
                         if pid in existing_pids:
                             duplicate_count += 1
                             continue
@@ -331,7 +333,7 @@ elif page == "🏗️ Site Data Entry":
                         clean_row = {k: (None if pd.isna(v) else v) for k, v in row.items() if k not in ['id', 'team_balance', 'balance_amt', 'created_at']}
                         records_to_insert.append(clean_row)
                         success_count += 1
-                        existing_pids.add(pid) # Mark as seen for this batch
+                        existing_pids.add(pid) 
 
                     if records_to_insert:
                         supabase.table("site_data").insert(records_to_insert).execute()
@@ -341,11 +343,11 @@ elif page == "🏗️ Site Data Entry":
                             <h3 style="color:#0f172a; margin-top:0;">📊 Bulk Upload Report</h3>
                             <div class="report-line">Total Sites in File: <span style="color:#0284c7;">{total_count}</span></div>
                             <div class="report-line" style="color:#059669;">✅ Successfully Uploaded: {success_count}</div>
-                            <div class="report-line" style="color:#dc2626;">❌ Rejected due to Duplicate: {duplicate_count}</div>
+                            <div class="report-line" style="color:#dc2626;">❌ Rejected due to Duplicate Project ID: {duplicate_count}</div>
                         </div>
                     """, unsafe_allow_html=True)
-                    if success_count > 0: st.info("Table will refresh in 3 seconds..."); import time; time.sleep(3); st.rerun()
-                except Exception as e: st.error(f"Error: {e}")
+                    if success_count > 0: st.info("Database will refresh in 3 seconds..."); import time; time.sleep(3); st.rerun()
+                except Exception as e: st.error(f"Error during processing: {e}")
 
     search = c_search.text_input("🔍 Search Database...", placeholder="Search Project, Site ID...")
 
