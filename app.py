@@ -3,6 +3,7 @@ from supabase import create_client, Client
 import pandas as pd
 from datetime import datetime
 import io
+import streamlit.components.v1 as components
 
 # --- AUTO INSTALL OPENPYXL FOR EXCEL UPLOAD ---
 import subprocess
@@ -14,13 +15,27 @@ except ImportError:
     import openpyxl
 
 # --- 1. PAGE CONFIG & ATTRACTIVE COLORFUL STYLE ---
-# Menu aur Toolbar ko hide kiya gaya hai taaki shortcuts trigger na hon
 st.set_page_config(
     page_title="Visiontech Mundada", 
     page_icon="💎", 
     layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items=None
+    initial_sidebar_state="expanded"
+)
+
+# STOP CLEAR CACHE POPUP: Custom JS to block 'C' key shortcut
+components.html(
+    """
+    <script>
+    const doc = window.parent.document;
+    doc.addEventListener('keydown', function(e) {
+        if (e.keyCode === 67 && (e.ctrlKey || e.metaKey)) {
+            e.stopImmediatePropagation();
+        }
+    }, True);
+    </script>
+    """,
+    height=0,
+    width=0,
 )
 
 st.markdown("""
@@ -28,7 +43,6 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap');
     html, body, [class*="st-"] { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
     
-    /* Toolbar hide karne ke liye additional CSS */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
