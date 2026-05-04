@@ -88,7 +88,7 @@ with st.sidebar:
     page = st.radio("MAIN NAVIGATION", ["🏠 Dashboard", "📝 Master Registration", "🏗️ Site Data Entry", "💸 Finance Ledger", "👥 Team Ledger"], key="nav_page")
     st.info(f"User: Mayur Patil\nDate: 29-Apr-2026")
 
-# --- 5. DASHBOARD (RESTORED FROM OLD CODE) ---
+# --- 5. DASHBOARD (UPDATED WITH TOTAL PROJECT AMT RULE) ---
 if page == "🏠 Dashboard":
     st.markdown("<h1>📊 Project Intelligence</h1>", unsafe_allow_html=True)
     try:
@@ -98,37 +98,37 @@ if page == "🏠 Dashboard":
             df_s = pd.DataFrame(s_res.data)
             df_f = pd.DataFrame(f_res.data) if f_res.data else pd.DataFrame(columns=['received_from', 'received_amt'])
             
+            # Forced Rule for Projected Amount calculation
+            df_s['team_billing'] = pd.to_numeric(df_s['team_billing']).fillna(0)
+            df_s['project_amt'] = pd.to_numeric(df_s['project_amt']).fillna(0)
+            
+            # If Team billing exists (>0), projected amt becomes 0 for that site
+            total_projected_amt = df_s.apply(lambda x: 0 if x['team_billing'] > 0 else x['project_amt'], axis=1).sum()
+
             st.markdown("### 📍 Summary")
-            c1, c2 = st.columns(2)
+            c1, c2, c3 = st.columns(3)
             c1.metric("Total Site Count", len(df_s))
-            c2.metric("Total PO Amt", f"₹ {df_s['po_amt'].sum():,.0f}")
+            c2.metric("Total PO Amt", f"₹ {df_s['po_amt'].astype(float).sum():,.0f}")
+            c3.metric("Total Projected Amt", f"₹ {total_projected_amt:,.0f}")
             
             st.divider()
             st.markdown("### 👥 Team Status")
             c2_1, c2_2, c2_3 = st.columns(3)
-            t_bill, t_paid = df_s['team_billing'].sum(), df_s['team_paid_amt'].sum()
+            t_bill, t_paid = df_s['team_billing'].sum(), df_s['team_paid_amt'].astype(float).sum()
             c2_1.metric("Total Team Billing", f"₹ {t_bill:,.0f}")
             c2_2.metric("Total Team Paid", f"₹ {t_paid:,.0f}")
-            c2_3.metric("Total Team Balance", f"₹ {t_bill - t_paid:,.0f}")
+            c2_3.metric("Total Team Balance", f"₹ {t_paid - t_bill:,.0f}")
             
             st.divider()
             st.markdown("### 💳 WCC & Client Recovery")
             c3_1, c3_2, c3_3 = st.columns(3)
-            wcc_tot, rec_tot = df_s['wcc_amt'].sum(), df_s['received_amt'].sum()
+            wcc_tot, rec_tot = df_s['wcc_amt'].astype(float).sum(), df_s['received_amt'].astype(float).sum()
             c3_1.metric("Total WCC Amt", f"₹ {wcc_tot:,.0f}")
             c3_2.metric("Total Received Amt", f"₹ {rec_tot:,.0f}")
             c3_3.metric("WCC Pending Balance", f"₹ {wcc_tot - rec_tot:,.0f}")
-            
-            st.divider()
-            st.markdown("### 💰 Recovery Breakdown")
-            c4_1, c4_2 = st.columns(2)
-            m_amt = df_f[df_f['received_from'].str.contains("dilip mundada", case=False, na=False)]['received_amt'].astype(float).sum()
-            i_amt = df_f[df_f['received_from'].str.contains("indus tower", case=False, na=False)]['received_amt'].astype(float).sum()
-            c4_1.metric("Total Recv. From Dilip Mundada", f"₹ {m_amt:,.0f}")
-            c4_2.metric("Total Recv. From Indus Towers", f"₹ {i_amt:,.0f}")
-    except: st.info("Dashboard loading...")
+    except Exception as e: st.info("Dashboard loading...")
 
-# --- 6. MASTER REGISTRATION (Best State - NO CHANGES) ---
+# --- 6. MASTER REGISTRATION ---
 elif page == "📝 Master Registration":
     st.markdown("<h1>📋 Master Registry</h1>", unsafe_allow_html=True)
     tab1, tab2, tab3 = st.tabs(["👥 Clients", "🛠️ Teams", "📁 Projects"])
@@ -170,7 +170,7 @@ elif page == "📝 Master Registration":
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
-# --- 7. SITE DATA ENTRY (Best State - NO CHANGES) ---
+# --- 7. SITE DATA ENTRY (FORCED CALCULATION FIX & NEW LAYOUT) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
@@ -240,6 +240,7 @@ elif page == "🏗️ Site Data Entry":
             else: supabase.table("site_data").insert(data).execute()
             st.rerun()
 
+    # ACTION BAR
     res = supabase.table("site_data").select("*").execute()
     df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     
@@ -277,15 +278,17 @@ elif page == "🏗️ Site Data Entry":
     if not df_display.empty:
         df_filtered = df_display.copy()
         if search: df_filtered = df_filtered[df_filtered.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+        
         st.subheader("📋 Complete Site Database")
         edit_sel = st.selectbox("🎯 Select Project ID to EDIT", ["None"] + df_filtered['project_id'].tolist())
         if edit_sel != "None":
             edit_row = df_raw[df_raw['project_id'] == edit_sel].iloc[0].to_dict()
             if st.button("🛠️ Open Systematic Editor"):
                 open_popup_form(edit_row)
+        
         st.dataframe(df_filtered.drop(columns=['id'], errors='ignore'), use_container_width=True)
 
-# --- 8. FINANCE LEDGER (RESTORED FROM OLD CODE) ---
+# --- 8. FINANCE LEDGER ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
     pay_type = st.radio("Select Payment Type", ["Payment Received", "Payment Paid"], horizontal=True, key="pay_type")
@@ -368,7 +371,7 @@ elif page == "💸 Finance Ledger":
                     cols_to_show = ['received_from', 'transaction_date', 'paid_amount', 'created_at']
                     st.dataframe(df_paid[[c for c in cols_to_show if c in df_paid.columns]], use_container_width=True)
 
-# --- 9. TEAM LEDGER (RESTORED FROM OLD CODE) ---
+# --- 9. TEAM LEDGER ---
 elif page == "👥 Team Ledger":
     st.markdown("<h1>👥 Team Wise Billing & Balance</h1>", unsafe_allow_html=True)
     s_res = supabase.table("site_data").select("team_name", "team_billing", "team_paid_amt").execute()
@@ -383,7 +386,6 @@ elif page == "👥 Team Ledger":
         team_df = team_df.rename(columns={'team_name': 'Team Name', 'team_billing': 'Total Billing (₹)', 'team_paid_amt': 'Total Paid (₹)'})
         st.dataframe(team_df, use_container_width=True)
         st.divider()
-        st.markdown("### 📊 Download Report")
         st.download_button("📥 Download Excel", data=to_excel(team_df), file_name="Team_Wise_Report.xlsx")
     else:
         st.info("No data available to display team ledger.")
