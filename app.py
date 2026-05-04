@@ -112,16 +112,18 @@ elif page == "📝 Master Registration":
             pn = st.text_input("Project Name")
             if st.form_submit_button("Save Project"):
                 if pn:
-                    # Is line par error tab aati hai jab Table database mein nahi hoti
-                    supabase.table("project_master").insert({"project_name": pn}).execute()
-                    st.success("Project Saved")
-                    st.rerun()
+                    # FIX: Ensuring table exists and handling errors
+                    try:
+                        supabase.table("project_master").insert({"project_name": pn}).execute()
+                        st.success("Project Saved")
+                        st.rerun()
+                    except Exception as e: st.error(f"Error: {e}")
         st.divider()
         st.subheader("📁 Registered Projects")
         try:
             p_res = supabase.table("project_master").select("*").execute()
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
-        except: st.warning("Please create 'project_master' table in Supabase SQL editor.")
+        except: st.warning("Project Master table loading...")
 
 # --- 7. SITE DATA ENTRY ---
 elif page == "🏗️ Site Data Entry":
@@ -133,12 +135,13 @@ elif page == "🏗️ Site Data Entry":
     t_res = supabase.table("team_master").select("team_name").execute()
     teams_list = ["Select"] + [t['team_name'] for t in t_res.data] if t_res.data else ["Select"]
     
+    # FETCH PROJECTS FROM PROJECT MASTER
     try:
         p_master = supabase.table("project_master").select("project_name").execute()
         projects_master_list = ["Select"] + [p['project_name'] for p in p_master.data] if p_master.data else ["Select"]
     except:
         projects_master_list = ["Select"]
-
+    
     tc1, tc2, tc3, tc4 = st.columns([1, 1, 1.5, 2.5])
     if tc1.button("➕ New Site"): 
         st.session_state.edit_row_data = None
@@ -275,7 +278,7 @@ elif page == "💸 Finance Ledger":
                     supabase.table("finance").insert(finance_data).execute()
                     current_row = next((item for item in s_res.data if item["project_id"] == p_project), None)
                     old_paid = float(current_row['team_paid_amt']) if current_row and current_row['team_paid_amt'] else 0.0
-                    supabase.table("site_data").update({"team_paid_amt": old_paid + float(p_amt)}).eq("project_id", p_project).execute()
+                    supabase.table("site_data").update({"team_paid_amt": old_paid + float(p_amt)}).eq("project_id", f_project).execute()
                     st.success("Payment recorded!")
                     st.rerun()
                 except Exception as e: st.error(f"Error: {e}")
@@ -290,4 +293,3 @@ elif page == "👥 Team Ledger":
         team_df['Balance'] = team_df['team_billing'] - team_df['team_paid_amt']
         st.dataframe(team_df, use_container_width=True)
         st.download_button("📥 Download Report", data=to_excel(team_df), file_name="Team_Wise_Report.xlsx")
-        
