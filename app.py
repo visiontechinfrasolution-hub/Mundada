@@ -147,8 +147,6 @@ if page == "🏠 Dashboard":
         f_res = supabase.table("finance").select("*").execute()
         if s_res.data:
             df_s = pd.DataFrame(s_res.data)
-            df_f = pd.DataFrame(f_res.data) if f_res.data else pd.DataFrame(columns=['received_from', 'received_amt'])
-            
             df_s['team_billing'] = pd.to_numeric(df_s['team_billing']).fillna(0)
             df_s['project_amt'] = pd.to_numeric(df_s['project_amt']).fillna(0)
             total_projected_amt = df_s.apply(lambda x: 0 if x['team_billing'] > 0 else x['project_amt'], axis=1).sum()
@@ -272,7 +270,7 @@ elif page == "🏗️ Site Data Entry":
                 try: return float(val) if (val is not None and not pd.isna(val)) else 0.0
                 except: return 0.0
             
-            # UNIQUE CHECK: Only block if Project ID already exists in DB
+            # Project ID Unique Check
             check = supabase.table("site_data").select("project_id").eq("project_id", p_id).execute()
             if not is_editing and check.data:
                 st.error(f"❌ Project ID {p_id} already exists!"); return
@@ -292,12 +290,12 @@ elif page == "🏗️ Site Data Entry":
                 else: supabase.table("site_data").insert(data).execute()
                 st.rerun()
             except Exception as e:
-                # BYPASS SITE_ID ERROR: Try again with site_id as null if DB blocks it
+                # Bypass any Site ID Unique DB errors
                 if "site_data_site_id_key" in str(e):
-                    data["site_id"] = f"{s_id}_DUP_{datetime.now().strftime('%H%M%S')}" # Soft bypass to ensure save
+                    data["site_id"] = f"{s_id}" # Still trying to save
                     supabase.table("site_data").insert(data).execute()
                     st.rerun()
-                else: st.error(f"Error: {e}")
+                else: st.error(f"Database Error: {e}")
 
     res = supabase.table("site_data").select("*").order("created_at", desc=True).execute()
     df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
@@ -332,12 +330,12 @@ elif page == "🏗️ Site Data Entry":
                     
                     clean_row = {k: (None if pd.isna(v) else v) for k, v in row.items() if k not in ['id', 'team_balance', 'balance_amt', 'created_at']}
                     try:
-                        # Logic: Insert one by one to gracefully handle Site ID or other DB level unique errors
+                        # Inserting one by one to gracefully handle Site ID or other DB level unique errors
                         supabase.table("site_data").insert(clean_row).execute()
                         success_count += 1
                         existing_pids.add(pid)
                     except Exception as db_e:
-                        # If error is about SITE_ID, we still count it as rejection but keep processing
+                        # If error is about SITE_ID, we skip but count it as rejection due to DB constraint
                         duplicate_count += 1
 
                 st.markdown(f"""
@@ -345,7 +343,7 @@ elif page == "🏗️ Site Data Entry":
                         <h3 style="color:#0f172a; margin-top:0;">📊 Bulk Upload Report</h3>
                         <div class="report-line">Total Sites: {len(df_up)}</div>
                         <div class="report-line" style="color:#059669;">✅ Successfully Uploaded: {success_count}</div>
-                        <div class="report-line" style="color:#dc2626;">❌ Rejected due to Duplicate Project ID: {duplicate_count}</div>
+                        <div class="report-line" style="color:#dc2626;">❌ Rejected (Duplicate Project ID or DB Conflict): {duplicate_count}</div>
                     </div>
                 """, unsafe_allow_html=True)
                 if success_count > 0: import time; time.sleep(2); st.rerun()
