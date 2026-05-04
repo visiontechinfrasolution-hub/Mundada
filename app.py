@@ -144,7 +144,6 @@ elif page == "🏗️ Site Data Entry":
         p_master = supabase.table("project_master").select("project_name").execute()
         projects_master_list = ["Select"] + [p['project_name'] for p in p_master.data] if p_master.data else ["Select"]
 
-        # Note: Form borders removed to allow live calculations inside dialog
         st.markdown('<div class="section-header">📍 1. Site Details</div>', unsafe_allow_html=True)
         sc1, sc2, sc3 = st.columns(3)
         p_val = er.get('project_name', 'Select')
@@ -170,7 +169,6 @@ elif page == "🏗️ Site Data Entry":
         t_bill = tc3.number_input("Team Billing", value=float(er['team_billing']) if is_editing and er.get('team_billing') is not None else None, placeholder="Enter amount")
         t_paid = tc4.number_input("Team Paid Amount", value=float(er['team_paid_amt']) if is_editing and er.get('team_paid_amt') is not None else None, placeholder="Enter amount")
         
-        # Live Team Balance Calculation
         calc_t_bill = t_bill if t_bill is not None else 0.0
         calc_t_paid = t_paid if t_paid is not None else 0.0
         st.markdown(f"<div class='balance-box'>Team Balance (Auto-calculated): ₹ {calc_t_paid - calc_t_bill:,.2f}</div>", unsafe_allow_html=True)
@@ -182,7 +180,6 @@ elif page == "🏗️ Site Data Entry":
         
         wcc_a = st.number_input("VIS Bill Amount", value=float(er['wcc_amt']) if is_editing and er.get('wcc_amt') is not None else None, placeholder="Enter amount")
         
-        # Live VIS Balance Calculation
         calc_wcc_a = wcc_a if wcc_a is not None else 0.0
         calc_r_amt = r_amt if r_amt is not None else 0.0
         st.markdown(f"<div class='balance-box'>VIS Balance (Auto-calculated): ₹ {calc_wcc_a - calc_r_amt:,.2f}</div>", unsafe_allow_html=True)
@@ -199,13 +196,19 @@ elif page == "🏗️ Site Data Entry":
             else: supabase.table("site_data").insert(data).execute()
             st.rerun()
 
+    # ACTION BAR (ADDED DOWNLOAD BUTTON)
     res = supabase.table("site_data").select("*").execute()
     df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
-    c_btn, c_up, c_search = st.columns([1.5, 2.5, 3])
+    
+    c_add, c_down, c_up, c_search = st.columns([1.2, 1.2, 2.3, 2.5])
 
-    with c_btn:
+    with c_add:
         if st.button("➕ Add New Site", key="add_new_btn"):
             open_popup_form()
+
+    with c_down:
+        if not df.empty:
+            st.download_button("📥 Excel Download", data=to_excel(df), file_name="Site_Data.xlsx", use_container_width=True)
 
     with c_up:
         st.markdown('<div class="upload-container">', unsafe_allow_html=True)
