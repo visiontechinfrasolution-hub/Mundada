@@ -237,11 +237,12 @@ elif page == "🏗️ Site Data Entry":
             else: supabase.table("site_data").insert(data).execute()
             st.rerun()
 
-    # Fetch with Descending Order by created_at to ensure latest entry is 1st row
     res = supabase.table("site_data").select("*").order("created_at", desc=True).execute()
     df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     
     if not df_raw.empty:
+        # FIX: Clean .0 from PO Number for display
+        df_raw['po_no'] = df_raw['po_no'].apply(lambda x: str(int(float(x))) if pd.notnull(x) and str(x).replace('.','',1).isdigit() else str(x) if pd.notnull(x) else "")
         cols_order = ['project_name'] + [c for c in df_raw.columns if c not in ['project_name', 'id']] + ['id']
         df_display = df_raw[cols_order]
     else:
@@ -284,7 +285,7 @@ elif page == "🏗️ Site Data Entry":
                 open_popup_form(edit_row)
         st.dataframe(df_filtered.drop(columns=['id'], errors='ignore'), use_container_width=True)
 
-# --- 8. FINANCE LEDGER (LATEST FIRST) ---
+# --- 8. FINANCE LEDGER ---
 elif page == "💸 Finance Ledger":
     st.markdown("<h1>💸 Financial Ledger</h1>", unsafe_allow_html=True)
     pay_type = st.radio("Select Payment Type", ["Payment Received", "Payment Paid"], horizontal=True, key="pay_type")
