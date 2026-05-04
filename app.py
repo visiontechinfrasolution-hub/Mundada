@@ -23,17 +23,32 @@ st.set_page_config(
     menu_items={}
 )
 
-# FORCE STOP CLEAR CACHE POPUP
+# FORCE STOP CLEAR CACHE POPUP & ADD ENTER-TO-SAVE LOGIC
 components.html(
     """
     <script>
+    const doc = window.parent.document;
+    
+    // Block Clear Cache
     const stopShortcuts = (e) => {
         if (e.key.toLowerCase() === 'c' || e.keyCode === 67) {
             e.stopImmediatePropagation();
         }
     };
-    window.parent.document.addEventListener('keydown', stopShortcuts, true);
-    window.document.addEventListener('keydown', stopShortcuts, true);
+    doc.addEventListener('keydown', stopShortcuts, true);
+
+    // Enter Key to Save logic
+    doc.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            const buttons = doc.querySelectorAll('button');
+            for (let btn of buttons) {
+                if (btn.innerText.includes('SAVE PROJECT DATA')) {
+                    btn.click();
+                    break;
+                }
+            }
+        }
+    }, true);
     </script>
     """,
     height=0,
@@ -71,6 +86,7 @@ st.markdown("""
         border: 3px solid #0ea5e9;
     }
 
+    /* ADD NEW SITE BUTTON (Red) */
     .stButton > button[key="add_new_btn"] {
         background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%) !important;
         color: white !important;
@@ -79,6 +95,24 @@ st.markdown("""
         font-weight: 800 !important;
         border: none !important;
         box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+    }
+
+    /* HIGHLIGHTED SAVE PROJECT DATA BUTTON (Green/Emerald Gradient) */
+    div[data-testid="stDialog"] .stButton > button {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        color: white !important;
+        font-size: 1.2rem !important;
+        font-weight: 800 !important;
+        border-radius: 12px !important;
+        padding: 15px !important;
+        border: none !important;
+        box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3) !important;
+        transition: all 0.3s ease;
+    }
+    
+    div[data-testid="stDialog"] .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 25px rgba(16, 185, 129, 0.4) !important;
     }
 
     .section-header-1 { color: #0284c7; font-weight: 800; margin-top: 20px; font-size: 1.3rem; border-left: 5px solid #0284c7; padding-left: 10px; background: #f0f9ff; }
@@ -189,7 +223,7 @@ elif page == "📝 Master Registration":
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
-# --- 7. SITE DATA ENTRY (88% AUTO CALC ADDED) ---
+# --- 7. SITE DATA ENTRY (LATEST UI) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
@@ -216,15 +250,13 @@ elif page == "🏗️ Site Data Entry":
         po_n = sc6.text_input("PO Number", value=str(er.get('po_no', '')))
         
         pa1, pa2 = st.columns(2)
-        po_a = pa1.number_input("PO Amount", value=float(er.get('po_amt', 0.0)) if is_editing and er.get('po_amt') is not None else 0.0)
+        po_a = pa1.number_input("PO Amount", value=float(er.get('po_amt')) if is_editing and er.get('po_amt') is not None else None, placeholder="Enter amount")
         
-        # LOGIC: Auto-calc 88% if PO Amount is provided, else manual or existing value
-        auto_proj_val = float(er.get('project_amt', 0.0)) if is_editing else 0.0
-        if po_a > 0:
+        auto_proj_val = float(er.get('project_amt')) if is_editing and er.get('project_amt') is not None else None
+        if po_a is not None and po_a > 0:
             auto_proj_val = round(po_a * 0.88, 2)
             
-        p_amt = pa2.number_input("Projected Amount", value=auto_proj_val)
-        
+        p_amt = pa2.number_input("Projected Amount", value=auto_proj_val, placeholder="Enter amount")
         w_desc = st.text_area("Work Description", value=str(er.get('work_description', '')), placeholder="Enter full work details here...")
 
         st.markdown('<div class="section-header-2">👥 2. Team Details</div>', unsafe_allow_html=True)
@@ -236,8 +268,8 @@ elif page == "🏗️ Site Data Entry":
         status = tc2.selectbox("Site Status", st_list, index=st_list.index(status_val) if status_val in st_list else 0)
         
         tc3, tc4 = st.columns(2)
-        t_bill = tc3.number_input("Team Billing", value=float(er.get('team_billing', 0.0)) if is_editing and er.get('team_billing') is not None else 0.0)
-        t_paid = tc4.number_input("Team Paid Amount", value=float(er.get('team_paid_amt', 0.0)) if is_editing and er.get('team_paid_amt') is not None else 0.0)
+        t_bill = tc3.number_input("Team Billing", value=float(er.get('team_billing')) if is_editing and er.get('team_billing') is not None else None, placeholder="Enter amount")
+        t_paid = tc4.number_input("Team Paid Amount", value=float(er.get('team_paid_amt')) if is_editing and er.get('team_paid_amt') is not None else None, placeholder="Enter amount")
         
         calc_t_bill = t_bill if t_bill is not None else 0.0
         calc_t_paid = t_paid if t_paid is not None else 0.0
@@ -246,9 +278,9 @@ elif page == "🏗️ Site Data Entry":
         st.markdown('<div class="section-header-3">📄 3. VIS Billing Details</div>', unsafe_allow_html=True)
         vc1, vc2 = st.columns(2)
         wcc_n = vc1.text_input("VIS Invoice No.", value=str(er.get('wcc_no', '')))
-        r_amt = vc2.number_input("VIS Received Amt", value=float(er.get('received_amt', 0.0)) if is_editing and er.get('received_amt') is not None else 0.0)
+        r_amt = vc2.number_input("VIS Received Amt", value=float(er.get('received_amt')) if is_editing and er.get('received_amt') is not None else None, placeholder="Enter amount")
         
-        wcc_a = st.number_input("VIS Bill Amount", value=float(er.get('wcc_amt', 0.0)) if is_editing and er.get('wcc_amt') is not None else 0.0)
+        wcc_a = st.number_input("VIS Bill Amount", value=float(er.get('wcc_amt')) if is_editing and er.get('wcc_amt') is not None else None, placeholder="Enter amount")
         
         calc_wcc_a = wcc_a if wcc_a is not None else 0.0
         calc_r_amt = r_amt if r_amt is not None else 0.0
@@ -339,7 +371,7 @@ elif page == "💸 Finance Ledger":
 
         f_client = st.selectbox("Received From (Client)", clients)
         f_date = st.date_input("Date", datetime.now())
-        f_amt = st.number_input("Received Amt", value=None)
+        f_amt = st.number_input("Received Amt", value=None, placeholder="Enter amount")
         f_project = "None"
         if f_client == "Indus Towers Ltd.": f_project = st.selectbox("Project ID", projects)
         
@@ -370,7 +402,7 @@ elif page == "💸 Finance Ledger":
                 st.markdown(f"<div class='balance-box'><h3 style='color: #dc2626; margin:0;'>Current Team Balance: ₹ {billing - paid:,.0f}</h3></div>", unsafe_allow_html=True)
 
         p_date = st.date_input("Date", datetime.now())
-        p_amt = st.number_input("Paid Amt", value=None)
+        p_amt = st.number_input("Paid Amt", value=None, placeholder="Enter amount")
         
         if st.button("🚀 Submit Paid Payment"):
             if p_team != "Select" and p_amt is not None and p_project != "None":
