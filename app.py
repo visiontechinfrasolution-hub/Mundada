@@ -208,7 +208,7 @@ elif page == "📝 Master Registration":
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
-# --- 7. SITE DATA ENTRY (DUPLICATE FIX & BYPASS SITE_ID ERROR) ---
+# --- 7. SITE DATA ENTRY (DUPLICATE PROJECT ID FILTERING) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
@@ -236,6 +236,7 @@ elif page == "🏗️ Site Data Entry":
         
         pa1, pa2 = st.columns(2)
         po_a = pa1.number_input("PO Amount", value=float(er.get('po_amt')) if is_editing and er.get('po_amt') is not None else None, placeholder="Enter amount")
+        
         auto_proj_val = float(er.get('project_amt')) if is_editing and er.get('project_amt') is not None else None
         if po_a is not None and po_a > 0: auto_proj_val = round(po_a * 0.88, 2)
         p_amt = pa2.number_input("Projected Amount", value=auto_proj_val, placeholder="Enter amount")
@@ -268,10 +269,10 @@ elif page == "🏗️ Site Data Entry":
                 try: return float(val) if (val is not None and not pd.isna(val)) else 0.0
                 except: return 0.0
 
-            # Step 1: Forcefully check ONLY Project ID duplicate in code
+            # Only Block if Project ID is duplicate
             check = supabase.table("site_data").select("project_id").eq("project_id", p_id).execute()
             if not is_editing and check.data:
-                st.error(f"❌ Project ID {p_id} already exists!")
+                st.error(f"❌ Project ID {p_id} already exists in the database!")
                 return
 
             data = {
@@ -285,12 +286,9 @@ elif page == "🏗️ Site Data Entry":
                 "wcc_amt": clean_num(wcc_a), "received_amt": clean_num(r_amt),
                 "work_description": w_desc
             }
-            try:
-                if is_editing: supabase.table("site_data").update(data).eq('id', er['id']).execute()
-                else: supabase.table("site_data").insert(data).execute()
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error: Database restriction found. Please ensure Project ID is unique. ({e})")
+            if is_editing: supabase.table("site_data").update(data).eq('id', er['id']).execute()
+            else: supabase.table("site_data").insert(data).execute()
+            st.rerun()
 
     res = supabase.table("site_data").select("*").order("created_at", desc=True).execute()
     df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
@@ -304,7 +302,8 @@ elif page == "🏗️ Site Data Entry":
 
     c_add, c_down, c_up, c_search = st.columns([1.2, 1.2, 2.3, 2.5])
     with c_add:
-        if st.button("➕ Add New Site", key="add_new_btn"): open_popup_form()
+        if st.button("➕ Add New Site", key="add_new_btn"):
+            open_popup_form()
 
     with c_down:
         if not df_display.empty: st.download_button("📥 Excel Download", data=to_excel(df_display.drop(columns=['id'], errors='ignore')), file_name="Site_Data.xlsx", use_container_width=True)
@@ -319,36 +318,36 @@ elif page == "🏗️ Site Data Entry":
                     success_count = 0
                     duplicate_count = 0
                     
-                    # Fresh check of DB for duplicates
-                    curr_db = supabase.table("site_data").select("project_id").execute()
-                    existing_pids = set(p['project_id'] for p in curr_db.data) if curr_db.data else set()
+                    # Get fresh list of existing project IDs
+                    current_db = supabase.table("site_data").select("project_id").execute()
+                    existing_pids = set(p['project_id'] for p in current_db.data) if current_db.data else set()
                     
+                    records_to_insert = []
                     for row in df_up.to_dict(orient="records"):
                         pid = str(row.get('project_id'))
-                        # Skip if Project ID exists
+                        # ONLY check project_id for duplicates
                         if pid in existing_pids:
                             duplicate_count += 1
                             continue
                         
                         clean_row = {k: (None if pd.isna(v) else v) for k, v in row.items() if k not in ['id', 'team_balance', 'balance_amt', 'created_at']}
-                        try:
-                            # Insert one by one to prevent batch failure if database unique site_id triggers
-                            supabase.table("site_data").insert(clean_row).execute()
-                            success_count += 1
-                            existing_pids.add(pid)
-                        except:
-                            duplicate_count += 1
+                        records_to_insert.append(clean_row)
+                        success_count += 1
+                        existing_pids.add(pid) 
 
+                    if records_to_insert:
+                        supabase.table("site_data").insert(records_to_insert).execute()
+                    
                     st.markdown(f"""
                         <div class="bulk-report">
                             <h3 style="color:#0f172a; margin-top:0;">📊 Bulk Upload Report</h3>
                             <div class="report-line">Total Sites in File: <span style="color:#0284c7;">{total_count}</span></div>
                             <div class="report-line" style="color:#059669;">✅ Successfully Uploaded: {success_count}</div>
-                            <div class="report-line" style="color:#dc2626;">❌ Rejected (Duplicate or DB Error): {duplicate_count}</div>
+                            <div class="report-line" style="color:#dc2626;">❌ Rejected due to Duplicate Project ID: {duplicate_count}</div>
                         </div>
                     """, unsafe_allow_html=True)
-                    if success_count > 0: st.info("Refreshing..."); import time; time.sleep(2); st.rerun()
-                except Exception as e: st.error(f"Error: {e}")
+                    if success_count > 0: st.info("Database will refresh in 3 seconds..."); import time; time.sleep(3); st.rerun()
+                except Exception as e: st.error(f"Error during processing: {e}")
 
     search = c_search.text_input("🔍 Search Database...", placeholder="Search Project, Site ID...")
 
@@ -360,7 +359,8 @@ elif page == "🏗️ Site Data Entry":
         edit_sel = st.selectbox("🎯 Select Project ID to EDIT", ["None"] + df_filtered['project_id'].tolist())
         if edit_sel != "None":
             edit_row = df_raw[df_raw['project_id'] == edit_sel].iloc[0].to_dict()
-            if st.button("🛠️ Open Systematic Editor"): open_popup_form(edit_row)
+            if st.button("🛠️ Open Systematic Editor"):
+                open_popup_form(edit_row)
         st.dataframe(df_filtered.drop(columns=['id'], errors='ignore'), use_container_width=True)
 
 # --- 8. FINANCE LEDGER ---
