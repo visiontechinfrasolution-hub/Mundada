@@ -167,7 +167,7 @@ elif page == "📝 Master Registration":
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
-# --- 7. SITE DATA ENTRY (LATEST FIRST) ---
+# --- 7. SITE DATA ENTRY (FORCED CALCULATION FIX & PO AMT RESTORED) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
@@ -193,7 +193,11 @@ elif page == "🏗️ Site Data Entry":
         cluster = sc5.text_input("Cluster", value=str(er.get('cluster', '')))
         po_n = sc6.text_input("PO Number", value=str(er.get('po_no', '')))
         
-        p_amt = st.number_input("Projected Amount", value=float(er['project_amt']) if is_editing and er.get('project_amt') is not None else None, placeholder="Enter amount")
+        # New 50-50 Split for PO Amount and Projected Amount
+        pa1, pa2 = st.columns(2)
+        po_a = pa1.number_input("PO Amount", value=float(er['po_amt']) if is_editing and er.get('po_amt') is not None else None, placeholder="Enter amount")
+        p_amt = pa2.number_input("Projected Amount", value=float(er['project_amt']) if is_editing and er.get('project_amt') is not None else None, placeholder="Enter amount")
+        
         w_desc = st.text_area("Work Description", value=str(er.get('work_description', '')), placeholder="Enter full work details here...")
 
         st.markdown('<div class="section-header-2">👥 2. Team Details</div>', unsafe_allow_html=True)
@@ -229,7 +233,7 @@ elif page == "🏗️ Site Data Entry":
                 "project_name": None if sel_project == "Select" else sel_project,
                 "project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, 
                 "site_status": None if status == "Select" else status, "project_amt": p_amt or 0, "po_no": po_n, 
-                "team_name": None if t_name == "Select" else t_name, "team_billing": t_bill or 0, 
+                "po_amt": po_a or 0, "team_name": None if t_name == "Select" else t_name, "team_billing": t_bill or 0, 
                 "team_paid_amt": t_paid or 0, "wcc_no": wcc_n, "wcc_amt": wcc_a or 0, "received_amt": r_amt or 0,
                 "work_description": w_desc
             }
@@ -237,11 +241,11 @@ elif page == "🏗️ Site Data Entry":
             else: supabase.table("site_data").insert(data).execute()
             st.rerun()
 
+    # Fetch with Descending Order by created_at
     res = supabase.table("site_data").select("*").order("created_at", desc=True).execute()
     df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     
     if not df_raw.empty:
-        # FIX: Clean .0 from PO Number for display
         df_raw['po_no'] = df_raw['po_no'].apply(lambda x: str(int(float(x))) if pd.notnull(x) and str(x).replace('.','',1).isdigit() else str(x) if pd.notnull(x) else "")
         cols_order = ['project_name'] + [c for c in df_raw.columns if c not in ['project_name', 'id']] + ['id']
         df_display = df_raw[cols_order]
@@ -276,7 +280,6 @@ elif page == "🏗️ Site Data Entry":
     if not df_display.empty:
         df_filtered = df_display.copy()
         if search: df_filtered = df_filtered[df_filtered.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
-        
         st.subheader("📋 Complete Site Database")
         edit_sel = st.selectbox("🎯 Select Project ID to EDIT", ["None"] + df_filtered['project_id'].tolist())
         if edit_sel != "None":
@@ -320,15 +323,6 @@ elif page == "💸 Finance Ledger":
                     st.success("Finance Ledger Updated!")
                     st.rerun()
                 except Exception as e: st.error(f"Error: {e}")
-            else: st.error("Please fill all required fields.")
-
-        st.divider()
-        st.subheader("📜 Received Payments Table")
-        if not df_finance.empty:
-            df_recv = df_finance[df_finance['received_amt'] > 0].copy()
-            if not df_recv.empty:
-                cols_to_show = ['received_from', 'transaction_date', 'received_amt', 'created_at']
-                st.dataframe(df_recv[[c for c in cols_to_show if c in df_recv.columns]], use_container_width=True)
 
     else:
         t_master_res = supabase.table("team_master").select("team_name").execute()
@@ -357,16 +351,6 @@ elif page == "💸 Finance Ledger":
                     st.success(f"Payment recorded and Site Data Updated!")
                     st.rerun()
                 except Exception as e: st.error(f"Error: {e}")
-            else: st.error("Team Name, Amount, and Project ID are mandatory.")
-
-        st.divider()
-        st.subheader("📜 Paid Payments Table")
-        if not df_finance.empty:
-            if 'paid_amount' in df_finance.columns:
-                df_paid = df_finance[df_finance['paid_amount'] > 0].copy()
-                if not df_paid.empty:
-                    cols_to_show = ['received_from', 'transaction_date', 'paid_amount', 'created_at']
-                    st.dataframe(df_paid[[c for c in cols_to_show if c in df_paid.columns]], use_container_width=True)
 
 # --- 9. TEAM LEDGER ---
 elif page == "👥 Team Ledger":
@@ -384,5 +368,3 @@ elif page == "👥 Team Ledger":
         st.dataframe(team_df, use_container_width=True)
         st.divider()
         st.download_button("📥 Download Excel", data=to_excel(team_df), file_name="Team_Wise_Report.xlsx")
-    else:
-        st.info("No data available to display team ledger.")
