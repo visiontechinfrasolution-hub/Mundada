@@ -90,7 +90,7 @@ if page == "🏠 Dashboard":
 # --- 6. MASTER REGISTRATION ---
 elif page == "📝 Master Registration":
     st.markdown("<h1>📋 Master Registry</h1>", unsafe_allow_html=True)
-    tab1, tab2 = st.tabs(["👥 Clients", "🛠️ Teams"])
+    tab1, tab2, tab3 = st.tabs(["👥 Clients", "🛠️ Teams", "📁 Projects"])
     with tab1:
         with st.form("cl_reg"):
             cn = st.text_input("Client Name")
@@ -98,8 +98,6 @@ elif page == "📝 Master Registration":
                 if cn: 
                     supabase.table("client_master").insert({"client_name": cn}).execute()
                     st.success("Saved")
-                    for k in list(st.session_state.keys()): 
-                        if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
                     st.rerun()
         st.divider()
         st.subheader("👥 Registered Clients")
@@ -112,15 +110,25 @@ elif page == "📝 Master Registration":
                 if tn: 
                     supabase.table("team_master").insert({"team_name": tn, "leader_name": tl}).execute()
                     st.success("Saved")
-                    for k in list(st.session_state.keys()): 
-                        if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
                     st.rerun()
         st.divider()
         st.subheader("🛠️ Registered Teams")
         t_res = supabase.table("team_master").select("*").execute()
         if t_res.data: st.dataframe(pd.DataFrame(t_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
+    with tab3:
+        with st.form("pr_reg"):
+            pn = st.text_input("Project Name")
+            if st.form_submit_button("Save Project"):
+                if pn:
+                    supabase.table("project_master").insert({"project_name": pn}).execute()
+                    st.success("Project Saved")
+                    st.rerun()
+        st.divider()
+        st.subheader("📁 Registered Projects")
+        p_res = supabase.table("project_master").select("*").execute()
+        if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
 
-# --- 7. SITE DATA ENTRY (SECTIONED DESIGN FIX) ---
+# --- 7. SITE DATA ENTRY ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     if "edit_row_data" not in st.session_state: st.session_state.edit_row_data = None
@@ -130,8 +138,9 @@ elif page == "🏗️ Site Data Entry":
     t_res = supabase.table("team_master").select("team_name").execute()
     teams_list = ["Select"] + [t['team_name'] for t in t_res.data] if t_res.data else ["Select"]
     
-    c_master = supabase.table("client_master").select("client_name").execute()
-    clients_list = ["Select"] + [c['client_name'] for c in c_master.data] if c_master.data else ["Select"]
+    # Nayi logic: Client dropdown ki jagah Project dropdown use karne ke liye
+    p_master = supabase.table("project_master").select("project_name").execute()
+    projects_master_list = ["Select"] + [p['project_name'] for p in p_master.data] if p_master.data else ["Select"]
     
     tc1, tc2, tc3, tc4 = st.columns([1, 1, 1.5, 2.5])
     if tc1.button("➕ New Site"): 
@@ -161,12 +170,14 @@ elif page == "🏗️ Site Data Entry":
     
     with st.expander("📝 Project Details Form", expanded=True):
         with st.form("site_full_form", clear_on_submit=not is_editing):
-            # SECTION 1: SITE DETAILS
             st.markdown('<div class="section-header">📍 1. Site Details</div>', unsafe_allow_html=True)
             sc1, sc2, sc3 = st.columns(3)
-            # Existing 'client_name' logic check
-            cl_idx = clients_list.index(er['client_name']) if is_editing and er.get('client_name') in clients_list else 0
-            sel_client = sc1.selectbox("Project", clients_list, index=cl_idx)
+            
+            # Dropdown updated to Project Master
+            p_val = er.get('project_name', 'Select') if is_editing else 'Select'
+            p_idx = projects_master_list.index(p_val) if p_val in projects_master_list else 0
+            sel_project = sc1.selectbox("Project", projects_master_list, index=p_idx)
+            
             p_id = sc2.text_input("Project ID (Must be Unique) *", value=str(er['project_id']) if is_editing else "")
             s_id = sc3.text_input("Site ID", value=str(er['site_id']) if is_editing else "")
             
@@ -177,7 +188,6 @@ elif page == "🏗️ Site Data Entry":
             
             p_amt = st.number_input("Projected Amount", value=float(er['project_amt']) if is_editing and er['project_amt'] else 0.0)
 
-            # SECTION 2: TEAM DETAILS
             st.markdown('<div class="section-header">👥 2. Team Details</div>', unsafe_allow_html=True)
             tc1, tc2 = st.columns(2)
             t_idx = teams_list.index(er['team_name']) if is_editing and er['team_name'] in teams_list else 0
@@ -193,11 +203,9 @@ elif page == "🏗️ Site Data Entry":
             
             st.markdown(f"<div class='balance-box'>Team Balance (Auto-calculated): ₹ {t_bill - t_paid:,.2f}</div>", unsafe_allow_html=True)
 
-            # SECTION 3: VIS BILLING DETAILS
             st.markdown('<div class="section-header">📄 3. VIS Billing Details</div>', unsafe_allow_html=True)
             vc1, vc2 = st.columns(2)
             wcc_n = vc1.text_input("VIS Invoice No.", value=str(er['wcc_no']) if is_editing else "")
-            # Note: keeping wcc_amt variable same as your database column
             vc3, vc4 = st.columns(2)
             wcc_a = vc3.number_input("VIS Bill Amount", value=float(er['wcc_amt']) if is_editing and er['wcc_amt'] else 0.0)
             r_amt = vc4.number_input("VIS Received Amt", value=float(er['received_amt']) if is_editing and er['received_amt'] else 0.0)
@@ -208,25 +216,20 @@ elif page == "🏗️ Site Data Entry":
             if st.form_submit_button("💾 Save Project Data", use_container_width=True):
                 save_status = None if status == "Select" else status
                 save_team = None if t_name == "Select" else t_name
-                save_client = None if sel_client == "Select" else sel_client
+                save_project = None if sel_project == "Select" else sel_project
                 
                 data = {
-                    "project_id": p_id, "site_id": s_id, "site_name": s_nm, "cluster": cluster, 
-                    "site_status": save_status, "project_amt": p_amt, "po_no": po_n, 
+                    "project_name": save_project, "project_id": p_id, "site_id": s_id, "site_name": s_nm, 
+                    "cluster": cluster, "site_status": save_status, "project_amt": p_amt, "po_no": po_n, 
                     "team_name": save_team, "team_billing": t_bill, "team_paid_amt": t_paid, 
                     "wcc_no": wcc_n, "wcc_amt": wcc_a, "received_amt": r_amt
                 }
-                # Optional: Agar aapne database me client_name column rakha hai toh use add karein
-                # data["client_name"] = save_client 
 
                 if is_editing: 
                     supabase.table("site_data").update(data).eq('id', er['id']).execute()
                     st.session_state.edit_row_data = None
                 else: 
                     supabase.table("site_data").insert(data).execute()
-                
-                for k in list(st.session_state.keys()): 
-                    if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
                 st.rerun()
 
     st.divider()
@@ -272,8 +275,6 @@ elif page == "💸 Finance Ledger":
                         old_amt = float(current_row['received_amt']) if current_row and current_row['received_amt'] else 0.0
                         supabase.table("site_data").update({"received_amt": old_amt + float(f_amt)}).eq("project_id", f_project).execute()
                     st.success("Finance Ledger Updated!")
-                    for k in list(st.session_state.keys()): 
-                        if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
                     st.rerun()
                 except Exception as e: st.error(f"Error: {e}")
             else: st.error("Please fill all required fields.")
@@ -309,10 +310,8 @@ elif page == "💸 Finance Ledger":
                     supabase.table("finance").insert(finance_data).execute()
                     current_row = next((item for item in s_res.data if item["project_id"] == p_project), None)
                     old_paid = float(current_row['team_paid_amt']) if current_row and current_row['team_paid_amt'] else 0.0
-                    supabase.table("site_data").update({"team_paid_amt": old_paid + float(p_amt)}).eq("project_id", p_project).execute()
+                    supabase.table("site_data").update({"team_paid_amt": old_paid + float(p_amt)}).eq("project_id", f_project).execute()
                     st.success(f"Payment recorded and Site Data Updated!")
-                    for k in list(st.session_state.keys()): 
-                        if k not in ['nav_page', 'edit_row_data', 'pay_type']: del st.session_state[k]
                     st.rerun()
                 except Exception as e: st.error(f"Error: {e}")
             else: st.error("Team Name, Amount, and Project ID are mandatory.")
