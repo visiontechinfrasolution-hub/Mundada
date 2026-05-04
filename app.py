@@ -14,12 +14,24 @@ except ImportError:
     import openpyxl
 
 # --- 1. PAGE CONFIG & ATTRACTIVE COLORFUL STYLE ---
-st.set_page_config(page_title="Visiontech Mundada", page_icon="💎", layout="wide")
+# Menu aur Toolbar ko hide kiya gaya hai taaki shortcuts trigger na hon
+st.set_page_config(
+    page_title="Visiontech Mundada", 
+    page_icon="💎", 
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items=None
+)
 
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap');
     html, body, [class*="st-"] { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+    
+    /* Toolbar hide karne ke liye additional CSS */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
     
     /* UNIVERSAL DARK BORDER FOR ALL INPUTS */
     div[data-baseweb="input"], div[data-baseweb="select"], div[data-baseweb="textarea"], .stNumberInput div {
@@ -167,7 +179,7 @@ elif page == "📝 Master Registration":
             if p_res.data: st.dataframe(pd.DataFrame(p_res.data).drop(columns=['id'], errors='ignore'), use_container_width=True)
         except: st.warning("Project Master table loading...")
 
-# --- 7. SITE DATA ENTRY (FORCED CALCULATION FIX & PO AMT RESTORED) ---
+# --- 7. SITE DATA ENTRY (LATEST FIRST) ---
 elif page == "🏗️ Site Data Entry":
     st.markdown("<h1>🏗️ Site Data Registry</h1>", unsafe_allow_html=True)
     
@@ -193,7 +205,6 @@ elif page == "🏗️ Site Data Entry":
         cluster = sc5.text_input("Cluster", value=str(er.get('cluster', '')))
         po_n = sc6.text_input("PO Number", value=str(er.get('po_no', '')))
         
-        # New 50-50 Split for PO Amount and Projected Amount
         pa1, pa2 = st.columns(2)
         po_a = pa1.number_input("PO Amount", value=float(er['po_amt']) if is_editing and er.get('po_amt') is not None else None, placeholder="Enter amount")
         p_amt = pa2.number_input("Projected Amount", value=float(er['project_amt']) if is_editing and er.get('project_amt') is not None else None, placeholder="Enter amount")
@@ -241,7 +252,6 @@ elif page == "🏗️ Site Data Entry":
             else: supabase.table("site_data").insert(data).execute()
             st.rerun()
 
-    # Fetch with Descending Order by created_at
     res = supabase.table("site_data").select("*").order("created_at", desc=True).execute()
     df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     
@@ -280,6 +290,7 @@ elif page == "🏗️ Site Data Entry":
     if not df_display.empty:
         df_filtered = df_display.copy()
         if search: df_filtered = df_filtered[df_filtered.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+        
         st.subheader("📋 Complete Site Database")
         edit_sel = st.selectbox("🎯 Select Project ID to EDIT", ["None"] + df_filtered['project_id'].tolist())
         if edit_sel != "None":
